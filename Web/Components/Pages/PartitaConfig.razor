@@ -1,0 +1,292 @@
+﻿@page "/partita/{Id:int}"
+
+@using Core.Entities
+@using Core.Enums
+@using Infrasctructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ArciQuizDbContext Db
+@inject NavigationManager Nav
+
+<PageTitle>Configura Partita</PageTitle>
+
+@if (_isLoading)
+{
+    <p>Caricamento...</p>
+}
+else if (_partita is null)
+{
+    <div class="alert alert-danger">
+        Partita non trovata.
+    </div>
+}
+else
+{
+    <h1>Configura partita: @_partita.Titolo</h1>
+
+    <div class="mb-3">
+        <button class="btn btn-secondary" @onclick="TornaAllAdmin">
+            &larr; Torna al pannello admin
+        </button>
+    </div>
+
+    <hr />
+
+    <h2>Dettagli partita</h2>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Titolo</label>
+                <input class="form-control" @bind="_partita.Titolo" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Stato</label>
+                <select class="form-select" @bind="_partita.Stato">
+                    @foreach (PartitaStato stato in Enum.GetValues(typeof(PartitaStato)))
+                    {
+                        <option value="@stato">@stato</option>
+                    }
+                </select>
+            </div>
+
+            <button class="btn btn-primary" @onclick="SalvaPartita">
+                Salva dettagli partita
+            </button>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Info</h5>
+                    <p class="card-text">
+                        Id: @_partita.Id<br />
+                        Creata il @_partita.DtCreazione.ToLocalTime().ToString("g")<br />
+                        Manches: @_partita.Manches.Count<br />
+                        Squadre iscritte: @_partita.PlayersPartita.Count
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr />
+
+    <h2>Manches</h2>
+
+    <div class="mb-3">
+        <button class="btn btn-outline-primary" @onclick="AggiungiManche">
+            + Aggiungi manche
+        </button>
+    </div>
+
+    @if (!_partita.Manches.Any())
+    {
+        <p>Nessuna manche presente.</p>
+    }
+    else
+    {
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Stato</th>
+                    <th>Tempo risposta (s)</th>
+                    <th>Punti base</th>
+                    <th>Penalità errore</th>
+                    <th>Max astensioni</th>
+                    <th>Domande</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in _partita.Manches.OrderBy(m => m.Id))
+                {
+                    <tr>
+                        <td>@m.Id</td>
+                        <td>
+                            <select class="form-select form-select-sm" @bind="m.Stato">
+                                @foreach (MancheStato stato in Enum.GetValues(typeof(MancheStato)))
+                                {
+                                    <option value="@stato">@stato</option>
+                                }
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm"
+                                   @bind="m.TempoRispostaSecondi" min="5" max="300" />
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm"
+                                   @bind="m.PuntiBase" min="0" max="100000" />
+                        </td>
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input"
+                                   @bind="m.PenalitaErrore" />
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm"
+                                   @bind="m.MaxAstensioni" min="0" max="10" />
+                        </td>
+                        <td>
+                            @m.Domande.Count
+                            <button class="btn btn-sm btn-outline-primary ms-2"
+                                    @onclick="@(() => VaiConfigDomandeManche(m.Id))">
+                                Configura
+                            </button>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" @onclick="@(() => RimuoviManche(m))">
+                                Elimina
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <button class="btn btn-primary" @onclick="SalvaManches">
+            Salva modifiche manche
+        </button>
+    }
+
+    <hr />
+
+    <h2>Squadre iscritte</h2>
+
+    @if (!_players.Any())
+    {
+        <p>Nessuna squadra iscritta (per ora).</p>
+    }
+    else
+    {
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Nome squadra</th>
+                    <th>Id</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in _players)
+                {
+                    <tr>
+                        <td>@p.NomeSquadra</td>
+                        <td>@p.Id</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (!string.IsNullOrEmpty(_messaggio))
+    {
+        <div class="alert alert-success mt-3">@_messaggio</div>
+    }
+
+    @if (!string.IsNullOrEmpty(_errore))
+    {
+        <div class="alert alert-danger mt-3">@_errore</div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Partita? _partita;
+    private List<Player> _players = new();
+    private bool _isLoading = true;
+    private string? _messaggio;
+    private string? _errore;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _messaggio = null;
+        _errore = null;
+
+        _partita = await Db.Partite
+            .Include(p => p.Manches)
+            .Include(p => p.PlayersPartita)
+                .ThenInclude(pp => pp.Player)
+            .FirstOrDefaultAsync(p => p.Id == Id);
+
+        _players = _partita?.PlayersPartita
+            .Select(pp => pp.Player!)
+            .Distinct()
+            .ToList() ?? new List<Player>();
+
+        _isLoading = false;
+    }
+
+    private async Task SalvaPartita()
+    {
+        if (_partita is null) return;
+
+        try
+        {
+            await Db.SaveChangesAsync();
+            _messaggio = "Dettagli partita salvati.";
+        }
+        catch (Exception ex)
+        {
+            _errore = "Errore nel salvataggio della partita: " + ex.Message;
+        }
+    }
+
+    private async Task SalvaManches()
+    {
+        if (_partita is null) return;
+
+        try
+        {
+            await Db.SaveChangesAsync();
+            _messaggio = "Modifiche alle manches salvate.";
+        }
+        catch (Exception ex)
+        {
+            _errore = "Errore nel salvataggio delle manches: " + ex.Message;
+        }
+    }
+
+    private async Task AggiungiManche()
+    {
+        if (_partita is null) return;
+
+        var nuova = new Manche
+        {
+            PartitaId = _partita.Id,
+            TempoRispostaSecondi = 20,
+            PuntiBase = 2000,
+            PenalitaErrore = false,
+            MaxAstensioni = 3
+        };
+
+        Db.Manches.Add(nuova);
+        await Db.SaveChangesAsync();
+
+        await OnParametersSetAsync();
+        StateHasChanged();
+    }
+
+    private async Task RimuoviManche(Manche manche)
+    {
+        if (_partita is null) return;
+
+        Db.Manches.Remove(manche);
+        await Db.SaveChangesAsync();
+
+        await OnParametersSetAsync();
+        StateHasChanged();
+    }
+    private void VaiConfigDomandeManche(int mancheId)
+    {
+        Nav.NavigateTo($"/manche/{mancheId}/domande");
+    }
+
+    private void TornaAllAdmin()
+    {
+        Nav.NavigateTo("/admin");
+    }
+
+}

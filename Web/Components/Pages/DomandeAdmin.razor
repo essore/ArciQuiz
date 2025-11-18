@@ -1,0 +1,329 @@
+﻿@page "/domande"
+
+@using Core.Entities
+@using Infrasctructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ArciQuizDbContext Db
+
+<PageTitle>Gestione Domande</PageTitle>
+
+<h1>Gestione domande</h1>
+<p>Catalogo globale delle domande disponibili.</p>
+
+<hr />
+
+<h2>@(_domandaInEditing is null ? "Nuova domanda" : $"Modifica domanda #{_domandaInEditing.Id}")</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label class="form-label">Categoria</label>
+            <input class="form-control" @bind="_categoria" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Difficoltà</label>
+            <input class="form-control" @bind="_difficolta" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Testo domanda</label>
+            <textarea class="form-control" rows="3" @bind="_testo"></textarea>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="mb-2">
+            <label class="form-label">Risposta A</label>
+            <input class="form-control" @bind="_a" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Risposta B</label>
+            <input class="form-control" @bind="_b" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Risposta C</label>
+            <input class="form-control" @bind="_c" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Risposta D</label>
+            <input class="form-control" @bind="_d" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Risposta esatta (A/B/C/D)</label>
+            <input class="form-control" maxlength="1" @bind="_esatta" />
+        </div>
+
+        <button class="btn btn-primary me-2" @onclick="SalvaDomanda">
+            @(_domandaInEditing is null ? "Crea domanda" : "Salva modifiche")
+        </button>
+
+        @if (_domandaInEditing is not null)
+        {
+            <button class="btn btn-secondary" @onclick="AnnullaEdit">
+                Annulla modifica
+            </button>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_messaggio))
+{
+    <div class="alert alert-success mt-3">@_messaggio</div>
+}
+
+@if (!string.IsNullOrEmpty(_errore))
+{
+    <div class="alert alert-danger mt-3">@_errore</div>
+}
+
+<hr />
+
+<h2>Elenco domande</h2>
+
+<div class="mb-3">
+    <label class="form-label">Filtro testo / categoria / difficoltà</label>
+    <input class="form-control" @bind="Filtro" @bind:event="oninput" />
+</div>
+
+@if (_domandeFiltrate is null)
+{
+    <p>Caricamento...</p>
+}
+else if (!_domandeFiltrate.Any())
+{
+    <p>Nessuna domanda trovata.</p>
+}
+else
+{
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Categoria</th>
+                <th>Difficoltà</th>
+                <th>Domanda</th>
+                <th>Risposte</th>
+                <th>Esatta</th>
+                <th>FlagErrore</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var d in _domandeFiltrate.OrderBy(d => d.Id))
+            {
+                <tr class="@GetRowClass(d)">
+                    <td>@d.Id</td>
+                    <td>@d.Categoria</td>
+                    <td>@d.Difficolta</td>
+                    <td>@d.Testo</td>
+                    <td>
+                        A: @d.RispostaA<br />
+                        B: @d.RispostaB<br />
+                        C: @d.RispostaC<br />
+                        D: @d.RispostaD
+                    </td>
+                    <td>@d.RispostaEsatta</td>
+                    <td>@d.FlagErrore</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1"
+                                @onclick="@(() => ModificaDomanda(d))">
+                            Modifica
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                @onclick="@(() => EliminaDomanda(d))">
+                            Elimina
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Domanda>? _tutteDomande;
+    private IEnumerable<Domanda>? _domandeFiltrate;
+
+    // stato form
+    private Domanda? _domandaInEditing;
+    private string _categoria = "Generale";
+    private string _difficolta = "Facile";
+    private string _testo = string.Empty;
+    private string _a = string.Empty;
+    private string _b = string.Empty;
+    private string _c = string.Empty;
+    private string _d = string.Empty;
+    private string _esatta = "A";
+
+    private string _filtro = string.Empty;
+    private string? _messaggio;
+    private string? _errore;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CaricaDomande();
+    }
+
+    private async Task CaricaDomande()
+    {
+        _tutteDomande = await Db.Domande
+            .Where(d => !d.FlgDeleted) // escludi cancellate
+            .ToListAsync();
+
+        ApplicaFiltro();
+    }
+
+    private void ApplicaFiltro()
+    {
+        if (_tutteDomande is null)
+        {
+            _domandeFiltrate = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_filtro))
+        {
+            _domandeFiltrate = _tutteDomande;
+        }
+        else
+        {
+            var f = _filtro.Trim().ToLowerInvariant();
+            _domandeFiltrate = _tutteDomande.Where(d =>
+                d.Testo.ToLower().Contains(f)
+                || d.Categoria.ToLower().Contains(f)
+                || d.Difficolta.ToLower().Contains(f));
+        }
+    }
+
+    private string Filtro
+    {
+        get => _filtro;
+        set
+        {
+            _filtro = value;
+            ApplicaFiltro();
+        }
+    }
+
+    private async Task SalvaDomanda()
+    {
+        _errore = null;
+        _messaggio = null;
+
+        if (string.IsNullOrWhiteSpace(_testo)
+            || string.IsNullOrWhiteSpace(_a)
+            || string.IsNullOrWhiteSpace(_b)
+            || string.IsNullOrWhiteSpace(_c)
+            || string.IsNullOrWhiteSpace(_d))
+        {
+            _errore = "Compila il testo e tutte le risposte.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_esatta))
+        {
+            _errore = "Indica la risposta esatta (A/B/C/D).";
+            return;
+        }
+
+        var esatta = char.ToUpperInvariant(_esatta[0]);
+        if (!"ABCD".Contains(esatta))
+        {
+            _errore = "La risposta esatta deve essere A, B, C o D.";
+            return;
+        }
+
+        Domanda d;
+
+        if (_domandaInEditing is null)
+        {
+            // nuova domanda
+            d = new Domanda();
+            Db.Domande.Add(d);
+        }
+        else
+        {
+            // modifica esistente
+            d = _domandaInEditing;
+        }
+
+        d.Categoria = _categoria;
+        d.Difficolta = _difficolta;
+        d.Testo = _testo;
+        d.RispostaA = _a;
+        d.RispostaB = _b;
+        d.RispostaC = _c;
+        d.RispostaD = _d;
+        d.RispostaEsatta = esatta;
+        d.FlagErrore = false; // ogni modifica azzera l'errore
+
+        await Db.SaveChangesAsync();
+
+        _messaggio = _domandaInEditing is null
+            ? "Domanda creata."
+            : "Domanda modificata. FlagErrore azzerato.";
+
+        _domandaInEditing = null;
+        ResetForm();
+
+        await CaricaDomande();
+        StateHasChanged();
+    }
+
+    private void ModificaDomanda(Domanda d)
+    {
+        _domandaInEditing = d;
+
+        _categoria = d.Categoria;
+        _difficolta = d.Difficolta;
+        _testo = d.Testo;
+        _a = d.RispostaA;
+        _b = d.RispostaB;
+        _c = d.RispostaC;
+        _d = d.RispostaD;
+        _esatta = d.RispostaEsatta.ToString();
+    }
+
+    private void AnnullaEdit()
+    {
+        _domandaInEditing = null;
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        _categoria = "Generale";
+        _difficolta = "Facile";
+        _testo = string.Empty;
+        _a = _b = _c = _d = string.Empty;
+        _esatta = "A";
+    }
+
+    private async Task EliminaDomanda(Domanda d)
+    {
+        _errore = null;
+        _messaggio = null;
+
+        // se la domanda è già usata in una manche, non la eliminiamo a livello DB.
+        // soft delete: FlgDeleted = true
+        d.FlgDeleted = true;
+
+        await Db.SaveChangesAsync();
+
+        _messaggio = "Domanda eliminata (soft delete).";
+
+        if (_domandaInEditing?.Id == d.Id)
+        {
+            AnnullaEdit();
+        }
+
+        await CaricaDomande();
+        StateHasChanged();
+    }
+
+    private string GetRowClass(Domanda d)
+    {
+        return d.FlagErrore ? "table-danger" : string.Empty;
+    }
+}

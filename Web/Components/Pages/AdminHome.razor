@@ -1,5 +1,6 @@
 ﻿@page "/"
 @page "/admin"
+@rendermode InteractiveServer
 
 @using Infrasctructure.Data
 @using Core.Entities
@@ -37,8 +38,12 @@ else
                 Manches: @_partitaAttiva.Manches.Count<br />
                 Squadre iscritte: @_partitaAttiva.PlayersPartita.Count
             </p>
-            <button class="btn btn-success me-2" disabled>
-                Apri regia partita (coming soon)
+            <button class="btn btn-primary me-2" @onclick="@(() => VaiAConfigPartita(_partitaAttiva!.Id))">
+                Configura partita
+            </button>
+
+            <button class="btn btn-success me-2" @onclick="@(() => VaiARegia(_partitaAttiva!.Id))">
+                Apri regia partita
             </button>
             <button class="btn btn-secondary" disabled>
                 Apri vista proiettore (coming soon)
@@ -52,8 +57,8 @@ else
 <h2>Azioni rapide</h2>
 
 <div class="mb-3">
-    <button class="btn btn-outline-primary me-2" disabled>
-        Nuova partita
+    <button class="btn btn-outline-primary me-2" @onclick="VaiNuovaPartita">
+        Nuova partita!
     </button>
     <button class="btn btn-outline-secondary me-2" disabled>
         Gestisci domande
@@ -85,6 +90,8 @@ else
                 <th>Creata il</th>
                 <th>Manches</th>
                 <th>Squadre</th>
+                <th>Azioni</th>
+
             </tr>
         </thead>
         <tbody>
@@ -96,6 +103,12 @@ else
                     <td>@p.DtCreazione.ToLocalTime().ToString("g")</td>
                     <td>@p.Manches.Count</td>
                     <td>@p.PlayersPartita.Count</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary"
+                                @onclick="@(() => VaiAConfigPartita(p.Id))">
+                            Configura
+                        </button>
+                    </td>
                 </tr>
             }
         </tbody>
@@ -105,6 +118,8 @@ else
 @code {
     private Partita? _partitaAttiva;
     private List<Partita>? _ultimePartite;
+    [Inject] NavigationManager Nav { get; set; } = default!;
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -123,7 +138,10 @@ else
             .Take(10)
             .ToListAsync();
     }
-
+    private void VaiAConfigPartita(int partitaId)
+    {
+        Nav.NavigateTo($"/partita/{partitaId}");
+    }
     // per ora: crea una partita di prova veloce
     private async Task NuovaPartitaMock()
     {
@@ -144,5 +162,13 @@ else
     {
         // in un secondo momento useremo NavigationManager
         // per ora puoi semplicemente andare manualmente a /partite-demo
+    }
+    private void VaiARegia(int partitaId)
+    {
+        Nav.NavigateTo($"/regia/{partitaId}");
+    }
+    private void VaiNuovaPartita()
+    {
+        Nav.NavigateTo("/nuova-partita");
     }
 }

@@ -1,0 +1,89 @@
+﻿@page "/nuova-partita"
+@rendermode InteractiveServer
+
+@using Core.Entities
+@using Infrasctructure.Data
+@inject ArciQuizDbContext Db
+@inject NavigationManager Nav
+
+<PageTitle>Nuova Partita</PageTitle>
+
+<h1>Crea una nuova partita</h1>
+<p>Imposta i dati principali della partita.</p>
+
+<hr />
+
+<div class="mb-3">
+    <label class="form-label">Titolo della partita</label>
+    <input type="text" class="form-control" @bind="Titolo" placeholder="Es: Serata Quiz del Grillo" />
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Numero manche iniziali</label>
+    <input type="number" class="form-control" @bind="NumeroManche" min="1" max="20" />
+</div>
+
+<button class="btn btn-primary" @onclick="CreaPartita">
+    Crea partita
+</button>
+
+<button class="btn btn-secondary ms-3" @onclick="Annulla">
+    Annulla
+</button>
+
+@if (Errore != null)
+{
+    <div class="alert alert-danger mt-3">@Errore</div>
+}
+
+@code {
+    private string Titolo = string.Empty;
+    private int NumeroManche = 1;
+    private string? Errore;
+
+    private async Task CreaPartita()
+    {
+        Errore = null;
+
+        if (string.IsNullOrWhiteSpace(Titolo))
+        {
+            Errore = "Il titolo è obbligatorio.";
+            return;
+        }
+
+        // 1) Creiamo la partita
+        var partita = new Partita
+        {
+            Titolo = Titolo,
+            DtCreazione = DateTime.UtcNow
+        };
+
+        Db.Partite.Add(partita);
+
+        // 2) Creiamo N manche iniziali
+        for (int i = 0; i < NumeroManche; i++)
+        {
+            var m = new Manche
+            {
+                Partita = partita,
+                TempoRispostaSecondi = 20,
+                PuntiBase = 2000,
+                PenalitaErrore = false,
+                MaxAstensioni = 3
+            };
+
+            Db.Manches.Add(m);
+        }
+
+        // 3) Salviamo tutto
+        await Db.SaveChangesAsync();
+
+        // 4) Redirect alla pagina di configurazione (TO-DO)
+        Nav.NavigateTo("/admin");
+    }
+
+    private void Annulla()
+    {
+        Nav.NavigateTo("/admin");
+    }
+}

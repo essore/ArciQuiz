@@ -16,6 +16,7 @@ namespace Core.Entities
         public string RispostaD { get; set; } = string.Empty;
         public char RispostaEsatta { get; set; }  // 'A','B','C','D'
         public bool FlagErrore { get; set; } = false;
+        public bool FlgDeleted { get; set; } = false;
         public ICollection<MancheDomanda> Manches { get; set; } = new List<MancheDomanda>();
     }
 }

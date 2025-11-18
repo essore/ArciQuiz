@@ -1,0 +1,326 @@
+﻿@page "/manche/{Id:int}/domande"
+
+@using Core.Entities
+@using Infrasctructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ArciQuizDbContext Db
+@inject NavigationManager Nav
+
+<PageTitle>Domande Manche</PageTitle>
+
+@if (_isLoading)
+{
+    <p>Caricamento...</p>
+}
+else if (_manche is null)
+{
+    <div class="alert alert-danger">
+        Manche non trovata.
+    </div>
+}
+else
+{
+    <h1>Domande della manche @(_manche.Id)</h1>
+
+    <p>
+        Partita: <strong>@_manche.Partita?.Titolo</strong>
+        <br />
+        Tempo risposta: @_manche.TempoRispostaSecondi s · Punti base: @_manche.PuntiBase
+    </p>
+
+    <div class="mb-3">
+        <button class="btn btn-secondary" @onclick="TornaAllaPartita">
+            &larr; Torna configurazione partita
+        </button>
+    </div>
+
+    <hr />
+
+    <div class="row">
+        <div class="col-md-6">
+            <h2>Domande nella manche</h2>
+
+            @if (!_domandeManche.Any())
+            {
+                <p>Nessuna domanda associata a questa manche.</p>
+            }
+            else
+            {
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Ordine</th>
+                            <th>Testo</th>
+                            <th>Moltiplicatore</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var md in _domandeManche.OrderBy(md => md.Index))
+                        {
+                            <tr>
+                                <td>@md.Index</td>
+                                <td>
+                                    <strong>@md.Domanda?.Testo</strong><br />
+                                    <small>@md.Domanda?.Categoria · @md.Domanda?.Difficolta</small>
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm"
+                                           style="width:80px"
+                                           @bind="md.ModificatorePunti" min="1" max="10" />
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary me-1"
+                                            @onclick="@(() => SpostaSu(md))">
+                                        ↑
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary me-1"
+                                            @onclick="@(() => SpostaGiu(md))">
+                                        ↓
+                                    </button>
+                                    <button class="btn btn-sm btn-danger"
+                                            @onclick="@(() => RimuoviDaManche(md))">
+                                        Rimuovi
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <button class="btn btn-primary" @onclick="SalvaOrdineEModificatori">
+                    Salva modifiche
+                </button>
+            }
+
+            @if (!string.IsNullOrEmpty(_messaggio))
+            {
+                <div class="alert alert-success mt-3">@_messaggio</div>
+            }
+
+            @if (!string.IsNullOrEmpty(_errore))
+            {
+                <div class="alert alert-danger mt-3">@_errore</div>
+            }
+        </div>
+
+        <div class="col-md-6">
+            <h2>Aggiungi domande</h2>
+
+            <div class="mb-3">
+                <label class="form-label">Filtro testo / categoria / difficoltà</label>
+                <input class="form-control" @bind="_filtro" @bind:event="oninput" />
+            </div>
+
+            @if (_domandeDisponibiliFiltrate is null)
+            {
+                <p>Caricamento...</p>
+            }
+            else if (!_domandeDisponibiliFiltrate.Any())
+            {
+                <p>Nessuna domanda disponibile trovata.</p>
+            }
+            else
+            {
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Id</th>
+                            <th>Categoria</th>
+                            <th>Difficoltà</th>
+                            <th>Domanda</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in _domandeDisponibiliFiltrate!)
+                        {
+                            <tr>
+                                <td>@d.Id</td>
+                                <td>@d.Categoria</td>
+                                <td>@d.Difficolta</td>
+                                <td>@d.Testo</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="@(() => AggiungiDomanda(d.Id))">
+                                        Aggiungi
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Manche? _manche;
+    private List<MancheDomanda> _domandeManche = new();
+    private List<Domanda> _tutteDomande = new();
+    private IEnumerable<Domanda>? _domandeDisponibiliFiltrate;
+    private string _filtro = string.Empty;
+
+    private bool _isLoading = true;
+    private string? _messaggio;
+    private string? _errore;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _messaggio = null;
+        _errore = null;
+
+        _manche = await Db.Manches
+            .Include(m => m.Partita)
+            .Include(m => m.Domande)
+                .ThenInclude(md => md.Domanda)
+            .FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (_manche != null)
+        {
+            _domandeManche = _manche.Domande.OrderBy(md => md.Index).ToList();
+
+            // domande non ancora presenti nella manche
+            var idsInManche = _domandeManche
+                .Where(md => md.DomandaId.HasValue)
+                .Select(md => md.DomandaId!.Value)
+                .ToHashSet();
+
+            _tutteDomande = await Db.Domande.ToListAsync();
+            _domandeDisponibiliFiltrate = _tutteDomande
+                .Where(d => !idsInManche.Contains(d.Id))
+                .ToList();
+        }
+        else
+        {
+            _domandeManche = new List<MancheDomanda>();
+            _domandeDisponibiliFiltrate = Enumerable.Empty<Domanda>();
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task AggiungiDomanda(int domandaId)
+    {
+        if (_manche is null) return;
+
+        var maxIndex = _domandeManche.Any() ? _domandeManche.Max(md => md.Index) : 0;
+
+        var md = new MancheDomanda
+        {
+            MancheId = _manche.Id,
+            DomandaId = domandaId,
+            Index = maxIndex + 1,
+            ModificatorePunti = 1
+        };
+
+        Db.ManchesDomande.Add(md);
+        await Db.SaveChangesAsync();
+
+        await OnParametersSetAsync();
+        StateHasChanged();
+    }
+
+    private async Task RimuoviDaManche(MancheDomanda md)
+    {
+        Db.ManchesDomande.Remove(md);
+        await Db.SaveChangesAsync();
+
+        await OnParametersSetAsync();
+        StateHasChanged();
+    }
+
+    private async Task SalvaOrdineEModificatori()
+    {
+        try
+        {
+            await Db.SaveChangesAsync();
+            _messaggio = "Ordine e moltiplicatori salvati.";
+        }
+        catch (Exception ex)
+        {
+            _errore = "Errore nel salvataggio: " + ex.Message;
+        }
+    }
+
+    private async Task SpostaSu(MancheDomanda md)
+    {
+        var ordered = _domandeManche.OrderBy(x => x.Index).ToList();
+        var idx = ordered.FindIndex(x => x.Id == md.Id);
+        if (idx <= 0) return;
+
+        var sopra = ordered[idx - 1];
+        var tmp = md.Index;
+        md.Index = sopra.Index;
+        sopra.Index = tmp;
+
+        await Db.SaveChangesAsync();
+        await OnParametersSetAsync();
+        StateHasChanged();
+    }
+
+    private async Task SpostaGiu(MancheDomanda md)
+    {
+        var ordered = _domandeManche.OrderBy(x => x.Index).ToList();
+        var idx = ordered.FindIndex(x => x.Id == md.Id);
+        if (idx < 0 || idx >= ordered.Count - 1) return;
+
+        var sotto = ordered[idx + 1];
+        var tmp = md.Index;
+        md.Index = sotto.Index;
+        sotto.Index = tmp;
+
+        await Db.SaveChangesAsync();
+        await OnParametersSetAsync();
+        StateHasChanged();
+    }
+
+    private void TornaAllaPartita()
+    {
+        if (_manche?.PartitaId != null)
+        {
+            Nav.NavigateTo($"/partita/{_manche.PartitaId}");
+        }
+        else
+        {
+            Nav.NavigateTo("/admin");
+        }
+    }
+
+    private string Filtro
+    {
+        get => _filtro;
+        set
+        {
+            _filtro = value;
+            ApplicaFiltro();
+        }
+    }
+
+    private void ApplicaFiltro()
+    {
+        if (_tutteDomande is null) return;
+
+        var idsInManche = _domandeManche
+            .Where(md => md.DomandaId.HasValue)
+            .Select(md => md.DomandaId!.Value)
+            .ToHashSet();
+
+        var query = _tutteDomande.Where(d => !idsInManche.Contains(d.Id));
+
+        if (!string.IsNullOrWhiteSpace(_filtro))
+        {
+            var f = _filtro.Trim().ToLowerInvariant();
+            query = query.Where(d =>
+                d.Testo.ToLower().Contains(f)
+                || d.Categoria.ToLower().Contains(f)
+                || d.Difficolta.ToLower().Contains(f));
+        }
+
+        _domandeDisponibiliFiltrate = query.ToList();
+    }
+}
