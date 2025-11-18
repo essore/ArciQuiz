@@ -1,0 +1,148 @@
+﻿@page "/"
+@page "/admin"
+
+@using Infrasctructure.Data
+@using Core.Entities
+@using Core.Enums
+@using Microsoft.EntityFrameworkCore
+@inject ArciQuizDbContext Db
+
+<PageTitle>ArciQuiz - Admin</PageTitle>
+
+<h1>ArciQuiz – Pannello Admin</h1>
+<p>Configura e gestisci le partite del quiz.</p>
+
+<hr />
+
+<h2>Partita attiva</h2>
+
+@if (_partitaAttiva is null)
+{
+    <div class="alert alert-info">
+        Nessuna partita attiva al momento.
+    </div>
+
+    <button class="btn btn-primary" @onclick="NuovaPartitaMock">
+        Crea nuova partita di prova
+    </button>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h3 class="card-title">@_partitaAttiva.Titolo</h3>
+            <p class="card-text">
+                Stato: <strong>@_partitaAttiva.Stato</strong><br />
+                Creata il @_partitaAttiva.DtCreazione.ToLocalTime().ToString("g")<br />
+                Manches: @_partitaAttiva.Manches.Count<br />
+                Squadre iscritte: @_partitaAttiva.PlayersPartita.Count
+            </p>
+            <button class="btn btn-success me-2" disabled>
+                Apri regia partita (coming soon)
+            </button>
+            <button class="btn btn-secondary" disabled>
+                Apri vista proiettore (coming soon)
+            </button>
+        </div>
+    </div>
+}
+
+<hr />
+
+<h2>Azioni rapide</h2>
+
+<div class="mb-3">
+    <button class="btn btn-outline-primary me-2" disabled>
+        Nuova partita
+    </button>
+    <button class="btn btn-outline-secondary me-2" disabled>
+        Gestisci domande
+    </button>
+    <button class="btn btn-outline-secondary" @onclick="VaiAllePartiteDemo">
+        Elenco partite (demo)
+    </button>
+</div>
+
+<hr />
+
+<h2>Ultime partite</h2>
+
+@if (_ultimePartite is null)
+{
+    <p>Caricamento...</p>
+}
+else if (!_ultimePartite.Any())
+{
+    <p>Nessuna partita presente nel database.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Titolo</th>
+                <th>Stato</th>
+                <th>Creata il</th>
+                <th>Manches</th>
+                <th>Squadre</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in _ultimePartite)
+            {
+                <tr>
+                    <td>@p.Titolo</td>
+                    <td>@p.Stato</td>
+                    <td>@p.DtCreazione.ToLocalTime().ToString("g")</td>
+                    <td>@p.Manches.Count</td>
+                    <td>@p.PlayersPartita.Count</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private Partita? _partitaAttiva;
+    private List<Partita>? _ultimePartite;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // per ora consideriamo attiva "l'ultima non conclusa"
+        _partitaAttiva = await Db.Partite
+            .Include(p => p.Manches)
+            .Include(p => p.PlayersPartita)
+            .Where(p => p.Stato != PartitaStato.Conclusa)
+            .OrderByDescending(p => p.DtCreazione)
+            .FirstOrDefaultAsync();
+
+        _ultimePartite = await Db.Partite
+            .Include(p => p.Manches)
+            .Include(p => p.PlayersPartita)
+            .OrderByDescending(p => p.DtCreazione)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    // per ora: crea una partita di prova veloce
+    private async Task NuovaPartitaMock()
+    {
+        var p = new Partita
+        {
+            Titolo = "Nuova partita demo " + DateTime.Now.ToString("HH:mm")
+        };
+
+        Db.Partite.Add(p);
+        await Db.SaveChangesAsync();
+
+        // ricarica dati
+        await OnInitializedAsync();
+        StateHasChanged();
+    }
+
+    private void VaiAllePartiteDemo()
+    {
+        // in un secondo momento useremo NavigationManager
+        // per ora puoi semplicemente andare manualmente a /partite-demo
+    }
+}
