@@ -1,10 +1,15 @@
 ﻿@page "/proiettore/{PartitaId:int}"
+@layout MinimalLayout
+@implements IDisposable
 
 @using Core.Entities
 @using Core.Enums
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
-@inject ArciQuizDbContext Db
+@using Web.Services
+
+@inject IGameStateService GameState
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
 
 <PageTitle>Proiettore</PageTitle>
 
@@ -14,90 +19,66 @@
         <h2>Caricamento...</h2>
     </div>
 }
-else if (_partita is null)
+else if (_view is null)
 {
-    <div class="d-flex justify-content-center align-items-center" style="height:80vh;">
-        <h2>Partita non trovata.</h2>
+    <div class="d-flex justify-content-center align-items-center" style="height:80vh  ;">
+        <h2>In attesa della regia...</h2>
     </div>
 }
 else
 {
     <div class="container-fluid" style="padding:2rem;">
-
         <div class="mb-4 d-flex justify-content-between">
             <div>
-                <h1 style="font-size:3rem;">@_partita.Titolo</h1>
+                <h1 style="font-size:3rem;">@_view.PartitaTitolo</h1>
                 <p style="font-size:1.4rem;">
-                    Manche: @(_mancheCorrente?.Id.ToString() ?? "—") ·
-                    Stato manche: @(_mancheCorrente?.Stato.ToString() ?? "Nessuna manche attiva")
+                    Manche: @(_view.MancheId?.ToString() ?? "—") ·
+                    Stato: @_view.MancheStato
                 </p>
             </div>
             <div class="text-end">
                 <p style="font-size:1.2rem;">
-                    Stato partita: @_partita.Stato
+                    Phase: @_view.Phase
                 </p>
             </div>
         </div>
 
-        @if (_mancheCorrente is null || !_mancheCorrente.Domande.Any())
+        @if (_view.Domanda is null)
         {
             <div class="d-flex justify-content-center align-items-center" style="height:60vh;">
-                <h2 style="font-size:3rem;">In attesa di una manche...</h2>
-            </div>
-        }
-        else if (_domandaCorrente is null)
-        {
-            <div class="d-flex justify-content-center align-items-center" style="height:60vh;">
-                @if (_mancheCorrente.Stato == MancheStato.Conclusa)
-                {
-                    <h2 style="font-size:3rem;">Manche conclusa</h2>
-                }
-                else
-                {
-                    <h2 style="font-size:3rem;">In attesa della prossima domanda...</h2>
-                }
+                <h2 style="font-size:3rem;">@_view.PlaceholderText</h2>
             </div>
         }
         else
         {
             <div class="mb-4">
                 <h2 style="font-size:2.5rem;">
-                    Domanda @_domandaCorrente.Index
+                    Domanda @_view.Domanda.Index
                 </h2>
                 <h3 style="font-size:2rem; margin-top:1rem;">
-                    @_domandaCorrente.Domanda?.Testo
+                    @_view.Domanda.Testo
                 </h3>
                 <p class="text-muted" style="font-size:1.2rem; margin-top:0.5rem;">
-                    Categoria: @_domandaCorrente.Domanda?.Categoria ·
-                    Difficoltà: @_domandaCorrente.Domanda?.Difficolta
+                    Categoria: @_view.Domanda.Categoria · Difficoltà: @_view.Domanda.Difficolta
                 </p>
             </div>
 
             <div class="row" style="font-size:1.8rem;">
                 <div class="col-md-6 mb-3">
-                    <div class="border rounded p-3">
-                        <strong>A)</strong> @_domandaCorrente.Domanda?.RispostaA
-                    </div>
+                    <div class="border rounded p-3"><strong>A)</strong> @_view.Domanda.RispostaA</div>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <div class="border rounded p-3">
-                        <strong>B)</strong> @_domandaCorrente.Domanda?.RispostaB
-                    </div>
+                    <div class="border rounded p-3"><strong>B)</strong> @_view.Domanda.RispostaB</div>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <div class="border rounded p-3">
-                        <strong>C)</strong> @_domandaCorrente.Domanda?.RispostaC
-                    </div>
+                    <div class="border rounded p-3"><strong>C)</strong> @_view.Domanda.RispostaC</div>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <div class="border rounded p-3">
-                        <strong>D)</strong> @_domandaCorrente.Domanda?.RispostaD
-                    </div>
+                    <div class="border rounded p-3"><strong>D)</strong> @_view.Domanda.RispostaD</div>
                 </div>
             </div>
 
             <div class="mt-4 text-muted" style="font-size:1.2rem;">
-                <!-- Qui in futuro potrai mostrare countdown / numero risposte / ecc. -->
                 In attesa delle risposte dei giocatori...
             </div>
         }
@@ -107,87 +88,128 @@ else
 @code {
     [Parameter] public int PartitaId { get; set; }
 
-    private Partita? _partita;
-    private Manche? _mancheCorrente;
-    private MancheDomanda? _domandaCorrente;
-
     private bool _isLoading = true;
+    private IDisposable? _sub;
 
-    private System.Threading.PeriodicTimer? _timer;
-    private CancellationTokenSource? _cts;
+    private ProjectorViewModel? _view;
 
-    protected override async Task OnInitializedAsync()
+    // Dedup: evita ricarichi doppi se arriva lo stesso stato
+    private long _lastVersion = -1;
+
+    protected override void OnInitialized()
     {
-        _cts = new CancellationTokenSource();
-        await CaricaStato();
-
-        // refresh automatico ogni 1 secondo
-        _timer = new System.Threading.PeriodicTimer(TimeSpan.FromSeconds(1));
-        _ = AggiornaLoop(_cts.Token);
-    }
-
-    private async Task AggiornaLoop(CancellationToken token)
-    {
-        try
+        // subscribe push
+        _sub = GameState.Subscribe(state =>
         {
-            while (!token.IsCancellationRequested && _timer != null && await _timer.WaitForNextTickAsync(token))
+            // Filtra: questa pagina ascolta solo la sua partita
+            if (state.PartitaId != PartitaId) return;
+
+            // Dedup su version
+            if (state.Version == _lastVersion) return;
+            _lastVersion = state.Version;
+
+            _ = InvokeAsync(async () =>
             {
-                await CaricaStato();
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // normale in chiusura
-        }
+                await LoadFromStateAsync(state);
+                _isLoading = false;
+                StateHasChanged();
+            });
+        });
     }
 
-    private async Task CaricaStato()
+    private async Task LoadFromStateAsync(GameState state)
     {
-        _isLoading = true;
+        // Stato minimo ma coerente: se la regia non ha ancora impostato manche/domanda, placeholder
+        if (state.MancheId is null || state.MancheDomandaId is null)
+        {
+            _view = new ProjectorViewModel
+            {
+                Phase = state.Phase.ToString(),
+                PlaceholderText = state.Phase switch
+                {
+                    GamePhase.Waiting => "In attesa della regia...",
+                    GamePhase.Idle => "In attesa della regia...",
+                    GamePhase.Closed => "Partita chiusa",
+                    _ => "In attesa..."
+                }
+            };
+            return;
+        }
 
-        _partita = await Db.Partite
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        // Carico solo quello che serve per render: titolo partita, manche, domanda corrente
+        var partita = await db.Partite
+            .AsNoTracking()
             .Include(p => p.Manches)
                 .ThenInclude(m => m.Domande)
                     .ThenInclude(md => md.Domanda)
-            .FirstOrDefaultAsync(p => p.Id == PartitaId);
+            .FirstOrDefaultAsync(p => p.Id == state.PartitaId);
 
-        if (_partita != null)
+        if (partita is null)
         {
-            // manche in corso se presente, sennò la prima non conclusa, altrimenti null
-            _mancheCorrente =
-                _partita.Manches.FirstOrDefault(m => m.Stato == MancheStato.InGioco)
-                ?? _partita.Manches.FirstOrDefault(m => m.Stato != MancheStato.Conclusa);
-
-            if (_mancheCorrente != null)
-            {
-                _domandaCorrente = _mancheCorrente.Domande
-                    .OrderBy(md => md.Index)
-                    .FirstOrDefault(md => md.DtStart != null && md.DtEnd == null);
-            }
-            else
-            {
-                _domandaCorrente = null;
-            }
-        }
-        else
-        {
-            _mancheCorrente = null;
-            _domandaCorrente = null;
+            _view = null;
+            return;
         }
 
-        _isLoading = false;
+        var manche = partita.Manches.FirstOrDefault(m => m.Id == state.MancheId.Value);
+        var md = manche?.Domande.FirstOrDefault(x => x.Id == state.MancheDomandaId.Value);
+
+        if (manche is null || md?.Domanda is null)
+        {
+            _view = new ProjectorViewModel
+            {
+                PartitaTitolo = partita.Titolo,
+                MancheId = state.MancheId,
+                MancheStato = manche?.Stato.ToString() ?? "—",
+                Phase = state.Phase.ToString(),
+                PlaceholderText = "In attesa della prossima domanda..."
+            };
+            return;
+        }
+
+        _view = new ProjectorViewModel
+        {
+            PartitaTitolo = partita.Titolo,
+            MancheId = manche.Id,
+            MancheStato = manche.Stato.ToString(),
+            Phase = state.Phase.ToString(),
+            Domanda = new DomandaVm
+            {
+                Index = md.Index,
+                Testo = md.Domanda.Testo ?? "",
+                Categoria = md.Domanda.Categoria ?? "",
+                Difficolta = md.Domanda.Difficolta ?? "",
+                RispostaA = md.Domanda.RispostaA ?? "",
+                RispostaB = md.Domanda.RispostaB ?? "",
+                RispostaC = md.Domanda.RispostaC ?? "",
+                RispostaD = md.Domanda.RispostaD ?? ""
+            }
+        };
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        _cts?.Cancel();
-        _cts?.Dispose();
-        if (_timer != null)
-        {
-            _timer.Dispose();
-        }
+    public void Dispose() => _sub?.Dispose();
 
-        await Task.CompletedTask;
+    private sealed class ProjectorViewModel
+    {
+        public string PartitaTitolo { get; set; } = "ArciQuiz";
+        public int? MancheId { get; set; }
+        public string MancheStato { get; set; } = "—";
+        public string Phase { get; set; } = "—";
+        public string PlaceholderText { get; set; } = "In attesa...";
+
+        public DomandaVm? Domanda { get; set; }
+    }
+
+    private sealed class DomandaVm
+    {
+        public int Index { get; set; }
+        public string Testo { get; set; } = "";
+        public string Categoria { get; set; } = "";
+        public string Difficolta { get; set; } = "";
+        public string RispostaA { get; set; } = "";
+        public string RispostaB { get; set; } = "";
+        public string RispostaC { get; set; } = "";
+        public string RispostaD { get; set; } = "";
     }
 }

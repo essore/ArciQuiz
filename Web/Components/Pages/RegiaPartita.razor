@@ -4,8 +4,13 @@
 @using Core.Enums
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
+@using Web.Services
 @inject ArciQuizDbContext Db
 @inject NavigationManager Nav
+@inject IGameStateService GameState
+@inject Web.Services.ILanAddressService Lan
+@inject Web.Services.IQrCodeService Qr
+@inject IJSRuntime JS
 
 <PageTitle>Regia partita</PageTitle>
 
@@ -28,24 +33,48 @@ else
             &larr; Torna al pannello admin
         </button>
     </div>
+    @if (!string.IsNullOrWhiteSpace(_projectorUrl) && !string.IsNullOrWhiteSpace(_qrDataUrl))
+    {
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5 class="card-title">QR Proiettore</h5>
 
+                <img src="@_qrDataUrl" style="max-width:240px; width:100%;" />
+
+                <div class="mt-2">
+                    <small class="text-muted">Link:</small><br />
+                    <a href="@_projectorUrl" target="_blank">@_projectorUrl</a>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning mt-3">
+            Non riesco a determinare l'IP LAN. Controlla rete/Wi-Fi.
+        </div>
+    }
     <div class="row">
         <div class="col-md-4">
             <h2>Info partita</h2>
             <p>
                 Id: @_partita.Id<br />
                 Stato: @_partita.Stato<br />
-                Creata il @_partita.DtCreazione.ToLocalTime().ToString("g")<br />
+                Creata il @_partita.DtCreazione.ToLocalTime():g<br />
                 Manches: @_partita.Manches.Count
             </p>
 
             <div class="mb-3">
                 <label class="form-label">Manche</label>
-                <select class="form-select" @bind="mancheSelezionataId">
+
+                <select class="form-select"
+                        value="@_mancheSelezionataId"
+                        @onchange="OnMancheChanged">
                     <option value="">-- Seleziona manche --</option>
+
                     @foreach (var m in _partita.Manches.OrderBy(m => m.Id))
                     {
-                        <option value="@m.Id">
+                        <option value="@m.Id.ToString()">
                             Manche @m.Id (@m.Stato) - Domande: @m.Domande.Count
                         </option>
                     }
@@ -65,22 +94,23 @@ else
 
                         <div class="d-grid gap-2">
                             <button class="btn btn-primary"
-                                    @onclick="StartManche"
+                                    @onclick="StartMancheAsync"
                                     disabled="@(!_puoStartare)">
                                 Avvia manche / prima domanda
                             </button>
 
                             <button class="btn btn-success"
-                                    @onclick="ProssimaDomanda"
+                                    @onclick="ProssimaDomandaAsync"
                                     disabled="@(!_puoPassareProssima)">
                                 Prossima domanda
                             </button>
 
                             <button class="btn btn-warning"
-                                    @onclick="ChiudiManche"
+                                    @onclick="ChiudiMancheAsync"
                                     disabled="@(_mancheCorrente.Stato == MancheStato.Conclusa)">
                                 Chiudi manche
                             </button>
+
                             <button class="btn btn-dark" @onclick="ApriProiettore">
                                 Apri proiettore
                             </button>
@@ -93,11 +123,11 @@ else
                 <p>Seleziona una manche per iniziare la regia.</p>
             }
 
-            @if (!string.IsNullOrEmpty(_messaggio))
+            @if (!string.IsNullOrWhiteSpace(_messaggio))
             {
                 <div class="alert alert-success mt-3">@_messaggio</div>
             }
-            @if (!string.IsNullOrEmpty(_errore))
+            @if (!string.IsNullOrWhiteSpace(_errore))
             {
                 <div class="alert alert-danger mt-3">@_errore</div>
             }
@@ -127,28 +157,23 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                    @foreach (var md in _mancheCorrente.Domande.OrderBy(md => md.Index))
-                    {
-                        var isCorrente = _domandaCorrente is not null && md.Id == _domandaCorrente.Id;
-                        <tr class="@(isCorrente ? "table-info" : string.Empty)">
-                            <td>@md.Index</td>
-                            <td>
-                                @{
-                                    var statoDomanda = GetStatoDomanda(md);
-                                }
-                                @statoDomanda
-                            </td>
-                            <td>
-                                <strong>@md.Domanda?.Testo</strong><br />
-                                A: @md.Domanda?.RispostaA<br />
-                                B: @md.Domanda?.RispostaB<br />
-                                C: @md.Domanda?.RispostaC<br />
-                                D: @md.Domanda?.RispostaD
-                            </td>
-                            <td>@md.Domanda?.Categoria</td>
-                            <td>@md.Domanda?.Difficolta</td>
-                        </tr>
-                    }
+                        @foreach (var md in _mancheCorrente.Domande.OrderBy(md => md.Index))
+                        {
+                            var isCorrente = _domandaCorrente is not null && md.Id == _domandaCorrente.Id;
+                            <tr class="@(isCorrente ? "table-info" : string.Empty)">
+                                <td>@md.Index</td>
+                                <td>@GetStatoDomanda(md)</td>
+                                <td>
+                                    <strong>@md.Domanda?.Testo</strong><br />
+                                    A: @md.Domanda?.RispostaA<br />
+                                    B: @md.Domanda?.RispostaB<br />
+                                    C: @md.Domanda?.RispostaC<br />
+                                    D: @md.Domanda?.RispostaD
+                                </td>
+                                <td>@md.Domanda?.Categoria</td>
+                                <td>@md.Domanda?.Difficolta</td>
+                            </tr>
+                        }
                     </tbody>
                 </table>
             }
@@ -185,27 +210,22 @@ else
 
     private bool _isLoading = true;
     private string? _mancheSelezionataId;
+
     private string? _messaggio;
     private string? _errore;
 
-    private string mancheSelezionataId
-    {
-        get => _mancheSelezionataId;
-        set
-        {
-            _mancheSelezionataId = value;
-            OnMancheChangedHandler(_mancheSelezionataId);
-        }
-    }
+    private string? _projectorUrl;
+    private string? _qrDataUrl;
 
+    private bool _puoStartare =>
+        _mancheCorrente is not null &&
+        _mancheCorrente.Stato != MancheStato.InGioco &&
+        _mancheCorrente.Domande.Any();
 
-    private bool _puoStartare => _mancheCorrente is not null
-                                 && _mancheCorrente.Stato != MancheStato.InGioco
-                                 && _mancheCorrente.Domande.Any();
-
-    private bool _puoPassareProssima => _mancheCorrente is not null
-                                        && _mancheCorrente.Stato == MancheStato.InGioco
-                                        && _mancheCorrente.Domande.Any();
+    private bool _puoPassareProssima =>
+        _mancheCorrente is not null &&
+        _mancheCorrente.Stato == MancheStato.InGioco &&
+        _mancheCorrente.Domande.Any();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -213,35 +233,59 @@ else
         _messaggio = null;
         _errore = null;
 
-        _partita = await Db.Partite
-            .Include(p => p.Manches)
-                .ThenInclude(m => m.Domande)
-                    .ThenInclude(md => md.Domanda)
-            .FirstOrDefaultAsync(p => p.Id == PartitaId);
+        await ReloadFromDbAsync(publish: false);
 
-        if (_partita != null)
-        {
-            // se non c'è manche selezionata, prendi la prima
-            var firstManche = _partita.Manches.OrderBy(m => m.Id).FirstOrDefault();
-            if (firstManche != null)
-            {
-                _mancheCorrente = firstManche;
-                _mancheSelezionataId = firstManche.Id.ToString();
-                AggiornaDomandaCorrente();
-            }
-        }
+        // Pubblica lo stato iniziale (quando apro la regia)
+        PublishState();
+        BuildProjectorQr();
 
         _isLoading = false;
     }
-
-    private async Task OnMancheChangedHandler(string val)
+    private void BuildProjectorQr()
     {
-        _mancheSelezionataId = val;
-        if (int.TryParse(_mancheSelezionataId, out var mid) && _partita is not null)
+        var ip = Lan.GetLanIPv4();
+        if (string.IsNullOrWhiteSpace(ip))
         {
-            _mancheCorrente = _partita.Manches.FirstOrDefault(m => m.Id == mid);
-            AggiornaDomandaCorrente();
+            _projectorUrl = null;
+            _qrDataUrl = null;
+            return;
         }
+
+        // Se vuoi evitare di hardcodare la porta, puoi renderla configurabile.
+        var port = 5000;
+
+        _projectorUrl = $"http://{ip}:{port}/proiettore/{PartitaId}";
+        _qrDataUrl = Qr.ToDataUrlPng(_projectorUrl, pixelsPerModule: 8);
+    }
+    private async Task OnMancheChanged(ChangeEventArgs e)
+    {
+        _messaggio = null;
+        _errore = null;
+
+        _mancheSelezionataId = e.Value?.ToString();
+
+        if (_partita is null || string.IsNullOrWhiteSpace(_mancheSelezionataId))
+        {
+            _mancheCorrente = null;
+            _domandaCorrente = null;
+
+            PublishState(); // andiamo in Waiting/Idle
+            return;
+        }
+
+        if (!int.TryParse(_mancheSelezionataId, out var mid))
+        {
+            _mancheCorrente = null;
+            _domandaCorrente = null;
+
+            PublishState();
+            return;
+        }
+
+        _mancheCorrente = _partita.Manches.FirstOrDefault(m => m.Id == mid);
+        AggiornaDomandaCorrente();
+
+        PublishState();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -257,32 +301,34 @@ else
             .FirstOrDefault(md => md.DtStart != null && md.DtEnd == null);
     }
 
-    private async Task StartManche()
+    private async Task StartMancheAsync()
     {
         if (_mancheCorrente is null) return;
         if (!_mancheCorrente.Domande.Any()) return;
 
+        _messaggio = null;
+        _errore = null;
+
         try
         {
-            // se non c'è ancora una domanda corrente, avvia la prima
             var ordered = _mancheCorrente.Domande.OrderBy(md => md.Index).ToList();
             var current = ordered.FirstOrDefault(md => md.DtStart != null && md.DtEnd == null);
 
-            if (current == null)
-            {
-                var first = ordered.First();
-                first.DtStart = DateTime.UtcNow;
-
-                _mancheCorrente.Stato = MancheStato.InGioco;
-
-                await Db.SaveChangesAsync();
-                AggiornaDomandaCorrente();
-                _messaggio = "Manche avviata e prima domanda attiva.";
-            }
-            else
+            if (current is not null)
             {
                 _messaggio = "La manche è già in corso.";
+                PublishState(); // allinea slave
+                return;
             }
+
+            var first = ordered.First();
+            first.DtStart = DateTime.UtcNow;
+            _mancheCorrente.Stato = MancheStato.InGioco;
+
+            await Db.SaveChangesAsync();
+
+            await ReloadFromDbAsync(publish: true);
+            _messaggio = "Manche avviata e prima domanda attiva.";
         }
         catch (Exception ex)
         {
@@ -290,50 +336,53 @@ else
         }
     }
 
-    private async Task ProssimaDomanda()
+    private async Task ProssimaDomandaAsync()
     {
         if (_mancheCorrente is null) return;
         if (!_mancheCorrente.Domande.Any()) return;
 
+        _messaggio = null;
+        _errore = null;
+
         try
         {
             var ordered = _mancheCorrente.Domande.OrderBy(md => md.Index).ToList();
-
             var current = ordered.FirstOrDefault(md => md.DtStart != null && md.DtEnd == null);
 
-            if (current == null)
+            if (current is null)
             {
-                // se nessuna domanda è ancora attiva, avvia la prima
+                // non c'è una corrente: attiva la prima
                 var first = ordered.First();
                 first.DtStart = DateTime.UtcNow;
                 _mancheCorrente.Stato = MancheStato.InGioco;
+
                 await Db.SaveChangesAsync();
-                AggiornaDomandaCorrente();
+
+                await ReloadFromDbAsync(publish: true);
                 _messaggio = "Prima domanda attivata.";
                 return;
             }
 
-            // chiudi quella corrente
             current.DtEnd = DateTime.UtcNow;
 
-            // trova la successiva
             var next = ordered.FirstOrDefault(md => md.Index > current.Index);
-
-            if (next != null)
+            if (next is not null)
             {
                 next.DtStart = DateTime.UtcNow;
+
                 await Db.SaveChangesAsync();
-                AggiornaDomandaCorrente();
+
+                await ReloadFromDbAsync(publish: true);
                 _messaggio = $"Passato alla domanda {next.Index}.";
+                return;
             }
-            else
-            {
-                // nessuna successiva: chiudi la manche
-                _mancheCorrente.Stato = MancheStato.Conclusa;
-                await Db.SaveChangesAsync();
-                AggiornaDomandaCorrente();
-                _messaggio = "Nessuna domanda successiva. Manche conclusa.";
-            }
+
+            // Fine manche
+            _mancheCorrente.Stato = MancheStato.Conclusa;
+            await Db.SaveChangesAsync();
+
+            await ReloadFromDbAsync(publish: true);
+            _messaggio = "Nessuna domanda successiva. Manche conclusa.";
         }
         catch (Exception ex)
         {
@@ -341,25 +390,26 @@ else
         }
     }
 
-    private async Task ChiudiManche()
+    private async Task ChiudiMancheAsync()
     {
         if (_mancheCorrente is null) return;
 
+        _messaggio = null;
+        _errore = null;
+
         try
         {
-            // chiudi eventuale domanda corrente
             var current = _mancheCorrente.Domande
                 .FirstOrDefault(md => md.DtStart != null && md.DtEnd == null);
 
-            if (current != null)
-            {
+            if (current is not null)
                 current.DtEnd = DateTime.UtcNow;
-            }
 
             _mancheCorrente.Stato = MancheStato.Conclusa;
 
             await Db.SaveChangesAsync();
-            AggiornaDomandaCorrente();
+
+            await ReloadFromDbAsync(publish: true);
             _messaggio = "Manche chiusa manualmente.";
         }
         catch (Exception ex)
@@ -368,24 +418,73 @@ else
         }
     }
 
-    private string GetStatoDomanda(MancheDomanda md)
+    private async Task ReloadFromDbAsync(bool publish)
     {
-        if (md.DtStart == null && md.DtEnd == null)
-            return "In attesa";
-        if (md.DtStart != null && md.DtEnd == null)
-            return "In corso";
-        if (md.DtStart != null && md.DtEnd != null)
-            return "Conclusa";
+        _partita = await Db.Partite
+            .Include(p => p.Manches)
+                .ThenInclude(m => m.Domande)
+                    .ThenInclude(md => md.Domanda)
+            .FirstOrDefaultAsync(p => p.Id == PartitaId);
 
+        if (_partita is null)
+        {
+            _mancheCorrente = null;
+            _domandaCorrente = null;
+            if (publish) PublishState();
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_mancheSelezionataId) && int.TryParse(_mancheSelezionataId, out var mid))
+            _mancheCorrente = _partita.Manches.FirstOrDefault(m => m.Id == mid);
+        else
+            _mancheCorrente = _partita.Manches.OrderBy(m => m.Id).FirstOrDefault();
+
+        _mancheSelezionataId = _mancheCorrente?.Id.ToString();
+        AggiornaDomandaCorrente();
+
+        if (publish) PublishState();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void PublishState()
+    {
+        // “Fase” semplice per iniziare:
+        // - se nessuna partita => Idle
+        // - se manche selezionata ma nessuna domanda corrente => Waiting
+        // - se domanda corrente => ShowingQuestion
+
+        var phase =
+            _partita is null ? GamePhase.Idle :
+            _mancheCorrente is null ? GamePhase.Waiting :
+            _domandaCorrente is null ? GamePhase.Waiting :
+            GamePhase.ShowingQuestion;
+
+        var state = new GameState(
+            PartitaId: PartitaId,
+            MancheId: _mancheCorrente?.Id,
+            MancheDomandaId: _domandaCorrente?.Id,
+            QuestionIndex: _domandaCorrente?.Index,
+            Phase: phase,
+            PhaseEndsAtUtc: null,
+            Version: 0 // verrà sovrascritto dal service
+        );
+
+        GameState.SetState(state);
+    }
+
+    private static string GetStatoDomanda(MancheDomanda md)
+    {
+        if (md.DtStart == null && md.DtEnd == null) return "In attesa";
+        if (md.DtStart != null && md.DtEnd == null) return "In corso";
+        if (md.DtStart != null && md.DtEnd != null) return "Conclusa";
         return "Sconosciuto";
     }
 
-    private void TornaAllAdmin()
+    private void TornaAllAdmin() => Nav.NavigateTo("/admin");
+    //private void ApriProiettore() => Nav.NavigateTo($"/proiettore/{PartitaId}");
+    private async Task ApriProiettore()
     {
-        Nav.NavigateTo("/admin");
-    }
-    private void ApriProiettore()
-    {
-        Nav.NavigateTo($"/proiettore/{PartitaId}");
+        var url = $"/proiettore/{PartitaId}";
+        await JS.InvokeVoidAsync("openInNewTab", url);
     }
 }
