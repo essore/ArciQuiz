@@ -26,34 +26,15 @@ else if (_partita is null)
 }
 else
 {
-    <h1>Regia – @_partita.Titolo</h1>
+    <h1>Regia della partita:  @_partita.Titolo</h1>
 
     <div class="mb-3">
         <button class="btn btn-secondary" @onclick="TornaAllAdmin">
             &larr; Torna al pannello admin
         </button>
     </div>
-    @if (!string.IsNullOrWhiteSpace(_projectorUrl) && !string.IsNullOrWhiteSpace(_qrDataUrl))
-    {
-        <div class="card mt-3">
-            <div class="card-body">
-                <h5 class="card-title">QR Proiettore</h5>
 
-                <img src="@_qrDataUrl" style="max-width:240px; width:100%;" />
 
-                <div class="mt-2">
-                    <small class="text-muted">Link:</small><br />
-                    <a href="@_projectorUrl" target="_blank">@_projectorUrl</a>
-                </div>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="alert alert-warning mt-3">
-            Non riesco a determinare l'IP LAN. Controlla rete/Wi-Fi.
-        </div>
-    }
     <div class="row">
         <div class="col-md-4">
             <h2>Info partita</h2>
@@ -134,6 +115,14 @@ else
         </div>
 
         <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-4">
+                    <LanQr Title="QR Proiettore"
+                           RelativePath="@($"/proiettore/{PartitaId}")"
+                           Port="5000"
+                           MaxWidthPx="240" />
+                </div>
+            </div>
             <h2>Domande della manche</h2>
 
             @if (_mancheCorrente is null)
@@ -146,7 +135,8 @@ else
             }
             else
             {
-                <table class="table table-sm align-middle">
+                <p> ci sono @_mancheCorrente.Domande.Count() domande nella manche</p>
+                @* <table class="table table-sm align-middle">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -175,7 +165,7 @@ else
                             </tr>
                         }
                     </tbody>
-                </table>
+                </table> *@
             }
 
             @if (_domandaCorrente is not null)
@@ -237,26 +227,25 @@ else
 
         // Pubblica lo stato iniziale (quando apro la regia)
         PublishState();
-        BuildProjectorQr();
 
         _isLoading = false;
     }
-    private void BuildProjectorQr()
-    {
-        var ip = Lan.GetLanIPv4();
-        if (string.IsNullOrWhiteSpace(ip))
-        {
-            _projectorUrl = null;
-            _qrDataUrl = null;
-            return;
-        }
+    // private void BuildProjectorQr()
+    // {
+    //     var ip = Lan.GetLanIPv4();
+    //     if (string.IsNullOrWhiteSpace(ip))
+    //     {
+    //         _projectorUrl = null;
+    //         _qrDataUrl = null;
+    //         return;
+    //     }
 
-        // Se vuoi evitare di hardcodare la porta, puoi renderla configurabile.
-        var port = 5000;
+    //     // Se vuoi evitare di hardcodare la porta, puoi renderla configurabile.
+    //     var port = 5000;
 
-        _projectorUrl = $"http://{ip}:{port}/proiettore/{PartitaId}";
-        _qrDataUrl = Qr.ToDataUrlPng(_projectorUrl, pixelsPerModule: 8);
-    }
+    //     _projectorUrl = $"http://{ip}:{port}/proiettore/{PartitaId}";
+    //     _qrDataUrl = Qr.ToDataUrlPng(_projectorUrl, pixelsPerModule: 8);
+    // }
     private async Task OnMancheChanged(ChangeEventArgs e)
     {
         _messaggio = null;

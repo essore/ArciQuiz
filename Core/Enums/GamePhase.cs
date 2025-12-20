@@ -21,6 +21,9 @@ namespace Core.Enums
        int? QuestionIndex,
        GamePhase Phase,
        DateTimeOffset? PhaseEndsAtUtc,
+       int? SecondsRemainingHint,
+       bool AcceptingAnswers,
+       string? PublicMessage,
        long Version
    );
 

@@ -51,25 +51,25 @@ else
 {
 
     // === Apertura automatica browser ===
-    app.Lifetime.ApplicationStarted.Register(() =>
-    {
-        try
-        {
-            // Usa l'URL effettivamente in ascolto
-            // (è lo stesso che usa Visual Studio/launchSettings)
-            var url = app.Urls.FirstOrDefault() ?? "http://localhost:5000";
+    //app.Lifetime.ApplicationStarted.Register(() =>
+    //{
+    //    try
+    //    {
+    //        // Usa l'URL effettivamente in ascolto
+    //        // (è lo stesso che usa Visual Studio/launchSettings)
+    //        var url = app.Urls.FirstOrDefault() ?? "http://localhost:5000";
 
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true
-            });
-        }
-        catch
-        {
-            // Se non riesce ad aprire il browser, non blocchiamo l'app
-        }
-    });
+    //        Process.Start(new ProcessStartInfo
+    //        {
+    //            FileName = url,
+    //            UseShellExecute = true
+    //        });
+    //    }
+    //    catch
+    //    {
+    //        // Se non riesce ad aprire il browser, non blocchiamo l'app
+    //    }
+    //});
     // ================================
 
 }

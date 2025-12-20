@@ -45,8 +45,15 @@ else
 
         @if (_view.Domanda is null)
         {
-            <div class="d-flex justify-content-center align-items-center" style="height:60vh;">
+            <div class="d-flex justify-content-center align-items-center" style="height:60vh; flex-direction:column; gap:1rem;">
                 <h2 style="font-size:3rem;">@_view.PlaceholderText</h2>
+
+                <LanQr Title="Scansiona per aprire il proiettore"
+                       RelativePath="@($"/proiettore/{PartitaId}")"
+                       Port="5000"
+                       MaxWidthPx="320"
+                       ShowLink="false"
+                       CssClass="mt-0" />
             </div>
         }
         else
