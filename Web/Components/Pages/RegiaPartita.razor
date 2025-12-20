@@ -81,6 +81,9 @@ else
                                     disabled="@(_mancheCorrente.Stato == MancheStato.Conclusa)">
                                 Chiudi manche
                             </button>
+                            <button class="btn btn-dark" @onclick="ApriProiettore">
+                                Apri proiettore
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -380,5 +383,9 @@ else
     private void TornaAllAdmin()
     {
         Nav.NavigateTo("/admin");
+    }
+    private void ApriProiettore()
+    {
+        Nav.NavigateTo($"/proiettore/{PartitaId}");
     }
 }

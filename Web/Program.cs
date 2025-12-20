@@ -1,6 +1,7 @@
-using Web.Components;
 using Infrasctructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
+using Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("ArciQuiz");
@@ -15,6 +16,14 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 var app = builder.Build();
+
+
+// Pipeline HTTP
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
 
 // Creazione automatica del database SQLite se non esiste
 using (var scope = app.Services.CreateScope())
@@ -39,5 +48,28 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+
+// === Apertura automatica browser ===
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    try
+    {
+        // Usa l'URL effettivamente in ascolto
+        // (è lo stesso che usa Visual Studio/launchSettings)
+        var url = app.Urls.FirstOrDefault() ?? "http://localhost:5000";
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = url,
+            UseShellExecute = true
+        });
+    }
+    catch
+    {
+        // Se non riesce ad aprire il browser, non blocchiamo l'app
+    }
+});
+// ================================
 
 app.Run();
