@@ -8,7 +8,7 @@ Una postazione Windows gestisce amministrazione e regia, alimenta una vista pubb
 
 Il repository contiene un prototipo Blazor su .NET 10 con persistenza SQLite. Sono presenti parti della configurazione delle partite, del catalogo domande, della regia e del proiettore.
 
-Il prodotto non è ancora utilizzabile per una serata completa. La build e la suite di test verificate il 10 luglio 2026 sono verdi; iscrizione, client squadra, timer completo, calcolo punteggi e recupero dopo riavvio non sono ancora implementati.
+Il prodotto non è ancora utilizzabile per una serata completa. La build e la suite di test verificate l'11 luglio 2026 sono verdi; iscrizione, client squadra, timer completo, calcolo punteggi e recupero dopo riavvio non sono ancora implementati.
 
 Lo stato verificato è descritto in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md).
 
@@ -33,12 +33,16 @@ Lo stato verificato è descritto in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.m
 Da eseguire dalla root:
 
 ```powershell
-dotnet restore Web.slnx
-dotnet test Web.slnx
-dotnet build Web.slnx
+dotnet tool restore
+dotnet restore ArciQuiz.slnx
+dotnet test ArciQuiz.slnx
+dotnet build ArciQuiz.slnx
 ```
 
 Il comando canonico è eseguire prima i test e poi la build completa.
+
+Le migrazioni EF Core usano il tool locale `dotnet-ef` dichiarato in
+`.config/dotnet-tools.json`; non è richiesta un'installazione globale.
 
 ## Dati SQLite locali
 

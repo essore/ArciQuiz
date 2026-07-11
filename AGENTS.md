@@ -110,8 +110,8 @@ Non usare `BLOCKED` per difficoltà tecniche risolvibili con analisi, test o doc
 Per modifiche .NET, la verifica minima generale è:
 
 ```powershell
-dotnet test Web.slnx
-dotnet build Web.slnx
+dotnet test ArciQuiz.slnx
+dotnet build ArciQuiz.slnx
 ```
 
 Quando esistono test pertinenti, eseguirli prima della build completa. Ogni task può richiedere verifiche aggiuntive.

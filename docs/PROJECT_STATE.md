@@ -27,6 +27,7 @@ Il task successivo autorizzato è `AQ-005` in [TODO.md](TODO.md).
 
 - soluzione .NET 10 a tre progetti;
 - progetto xUnit con test sul versionamento monotono di `GameStateService`;
+- tool locale `dotnet-ef` 10.0.0 dichiarato nel repository;
 - Blazor Interactive Server;
 - database SQLite con migrazione iniziale EF Core e seed limitato allo sviluppo;
 - catalogo domande con creazione, modifica, filtro e soft delete;

@@ -20,7 +20,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 - Criteri di accettazione:
   - i nuovi campi ricevono valori espliciti coerenti con lo stato prototipale;
   - nessun cambiamento funzionale estraneo;
-  - `dotnet build Web.slnx --no-restore` termina con zero errori.
+  - `dotnet build ArciQuiz.slnx --no-restore` termina con zero errori.
 - Validazione: build completa e controllo del diff.
 
 ### AQ-002 — Creare la baseline di test
@@ -32,13 +32,13 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 - Criteri di accettazione:
   - il progetto test è incluso nella soluzione;
   - esiste un test sul versionamento monotono o su una regola pura estratta senza rifattorizzazioni estese;
-  - `dotnet test Web.slnx` e `dotnet build Web.slnx` sono verdi;
+  - `dotnet test ArciQuiz.slnx` e `dotnet build ArciQuiz.slnx` sono verdi;
   - README e AGENTS riportano il comando canonico.
 - Validazione: test e build completi.
 
 ### AQ-003 — Correggere la gestione degli artefatti SQLite
 
-- Stato: `BLOCKED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-002
 - Obiettivo: impedire il versionamento di database runtime, file WAL/SHM e altri artefatti locali.
@@ -48,10 +48,6 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - avvio/build non ricreano file non ignorati nel worktree;
   - il percorso dati corrente è documentato.
 - Validazione: `git status --short`, build e avvio controllato se possibile.
-- Blocco: l'ambiente corrente fa terminare `dotnet restore` e `dotnet build`
-  con esito negativo durante la risoluzione degli asset, senza errori riportati
-  da MSBuild. Serve ripristinare una baseline di restore/build verificabile
-  prima di poter soddisfare la validazione essenziale del task.
 
 ### AQ-004 — Stabilire migrazioni e percorso dati
 

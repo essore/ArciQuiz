@@ -13,6 +13,29 @@ Ogni voce deve indicare:
 
 ---
 
+## 2026-07-11 - Coerenza solution e chiusura AQ-003
+
+- Task: richiesta esplicita del proprietario successiva alla revisione tecnica.
+- Risultato:
+  - riconosciuto `ArciQuiz.slnx` come nome definitivo scelto dal proprietario;
+  - aggiornati i comandi operativi in AGENTS, README e TODO;
+  - rivalidati i criteri di AQ-003 e aggiornato lo stato a `DONE`;
+  - aggiunto il tool manifest locale con `dotnet-ef` 10.0.0;
+  - verificato che il modello EF Core è allineato alla migrazione corrente;
+  - AQ-005 resta l'unico task `READY`.
+- File principali: `.config/dotnet-tools.json`, `AGENTS.md`, `README.md`, `docs/TODO.md`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - `dotnet tool restore`: riuscito;
+  - `dotnet tool run dotnet-ef migrations has-pending-model-changes --project Infrasctructure\Infrasctructure.csproj --startup-project Web\Web.csproj --no-build`: nessuna modifica pendente al modello;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 -v minimal`: 2 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 -v minimal`: riuscita con 0 errori e 3 avvisi;
+  - `git check-ignore -v`: WAL e SHM locali ignorati;
+  - `git ls-files 'Web/*.db' 'Web/*.db-*'`: nessun artefatto SQLite tracciato.
+- Rischi residui:
+  - vulnerabilità nota di gravità alta nella dipendenza transitiva `SQLitePCLRaw.lib.e_sqlite3` 2.1.11;
+  - audit NuGet non raggiungibile nell'ambiente sandbox;
+  - due campi inutilizzati nella pagina regia segnalati durante la ricompilazione dei test.
+
 ## 2026-07-11 - AQ-004 Stabilire migrazioni e percorso dati
 
 - Task: AQ-004, eseguito su priorità esplicita del proprietario nonostante AQ-003 bloccato.
