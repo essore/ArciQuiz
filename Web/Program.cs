@@ -1,21 +1,24 @@
-using Infrasctructure.Data;
+﻿using Infrasctructure.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using System.Diagnostics;
 using Web.Components;
 using Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-var connectionString = builder.Configuration.GetConnectionString("ArciQuiz");
+var databaseFileName = builder.Configuration["Database:FileName"] ?? "arciquiz.db";
+var dataDirectory = Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+    "ArciQuiz");
+Directory.CreateDirectory(dataDirectory);
 
-var dbPath = Path.Combine(AppContext.BaseDirectory, "arciquiz.db");
-
-//builder.Services.AddDbContext<ArciQuizDbContext>(options =>
-//    options.UseSqlite($"Data Source={dbPath}"));
+var connectionString = new SqliteConnectionStringBuilder
+{
+    DataSource = Path.Combine(dataDirectory, databaseFileName)
+}.ToString();
 
 builder.Services.AddDbContextFactory<ArciQuizDbContext>(opt =>
 {
-    opt.UseSqlite($"Data Source={dbPath}");
+    opt.UseSqlite(connectionString);
 });
 
 // Add services to the container.
@@ -32,12 +35,16 @@ var app = builder.Build();
 
 
 
-// Creazione automatica del database SQLite se non esiste
+// Applica lo schema persistente prima di usare il database.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ArciQuizDbContext>();
-    db.Database.EnsureCreated();
-    ArciQuizDbInitializer.Seed(db);
+    db.Database.Migrate();
+
+    if (app.Environment.IsDevelopment())
+    {
+        ArciQuizDbInitializer.Seed(db);
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -56,7 +63,7 @@ else
     //    try
     //    {
     //        // Usa l'URL effettivamente in ascolto
-    //        // (� lo stesso che usa Visual Studio/launchSettings)
+    //        // (è lo stesso che usa Visual Studio/launchSettings)
     //        var url = app.Urls.FirstOrDefault() ?? "http://localhost:5000";
 
     //        Process.Start(new ProcessStartInfo

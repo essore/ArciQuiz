@@ -63,6 +63,17 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# SQLite runtime data
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 

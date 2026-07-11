@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/Elementi di soluzione/">
+    <File Path="docs/ARCHITECTURE.md" />
+    <File Path="docs/DECISIONS.md" />
+    <File Path="docs/PRODUCT.md" />
+    <File Path="docs/PROJECT_STATE.md" />
+    <File Path="docs/TODO.md" />
+    <File Path="docs/WORKLOG.md" />
+  </Folder>
+  <Project Path="Core.Tests/Core.Tests.csproj" />
+  <Project Path="Core/Core.csproj" />
+  <Project Path="Infrasctructure/Infrasctructure.csproj" />
+  <Project Path="Web/Web.csproj" />
+</Solution>

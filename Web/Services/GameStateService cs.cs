@@ -22,6 +22,9 @@ namespace Web.Services
             QuestionIndex: null,
             Phase: GamePhase.Idle,
             PhaseEndsAtUtc: null,
+            SecondsRemainingHint: null,
+            AcceptingAnswers: false,
+            PublicMessage: null,
             Version: 0);
 
         private event Action<GameState>? Changed;
