@@ -259,8 +259,28 @@ else
                 }
             }
 
+            if (_partita.Stato is PartitaStato.InCorso or PartitaStato.Conclusa
+                && _partita.Stato != partita.Stato)
+            {
+                _errore = "Avviare e concludere la partita dalla regia.";
+                return;
+            }
+
+            if (partita.Stato is PartitaStato.InCorso or PartitaStato.Conclusa
+                && _partita.Stato != partita.Stato)
+            {
+                _errore = "Lo stato di una partita avviata non può essere modificato dalla configurazione.";
+                return;
+            }
+
             partita.Titolo = _partita.Titolo;
-            partita.Stato = _partita.Stato;
+            if (partita.Stato is not (PartitaStato.InCorso or PartitaStato.Conclusa))
+            {
+                partita.Stato = _partita.Stato;
+                partita.Fase = partita.Stato == PartitaStato.Pronta
+                    ? GamePhase.Lobby
+                    : GamePhase.Idle;
+            }
             await db.SaveChangesAsync();
             _messaggio = "Dettagli partita salvati.";
         }
@@ -277,6 +297,22 @@ else
         try
         {
             await using var db = await DbFactory.CreateDbContextAsync();
+            var partitaStato = await db.Partite
+                .Where(item => item.Id == _partita.Id)
+                .Select(item => item.Stato)
+                .FirstOrDefaultAsync();
+            if (partitaStato is PartitaStato.InCorso or PartitaStato.Conclusa)
+            {
+                _errore = "Lo stato delle manche di una partita avviata si modifica soltanto dalla regia.";
+                return;
+            }
+
+            if (_partita.Manches.Any(item => item.Stato is MancheStato.InGioco or MancheStato.Conclusa))
+            {
+                _errore = "Avviare e concludere le manche dalla regia.";
+                return;
+            }
+
             foreach (var mancheModificata in _partita.Manches)
             {
                 var manche = await db.Manches.FirstOrDefaultAsync(item => item.Id == mancheModificata.Id);

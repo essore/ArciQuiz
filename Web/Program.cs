@@ -38,8 +38,18 @@ builder.Services.AddDbContextFactory<ArciQuizDbContext>(opt =>
     opt.UseSqlite(connectionString);
 });
 builder.Services.AddSingleton(adminCredentials);
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = PlayerSessionAuthentication.SelectorScheme;
+        options.DefaultChallengeScheme = PlayerSessionAuthentication.SelectorScheme;
+    })
+    .AddPolicyScheme(PlayerSessionAuthentication.SelectorScheme, null, options =>
+    {
+        options.ForwardDefaultSelector = context => PlayerSessionAuthentication.SelectScheme(
+            context.Request.Path,
+            context.Request.Cookies.ContainsKey(PlayerSessionAuthentication.CookieName));
+    })
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/login";
@@ -47,22 +57,32 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromHours(12);
     })
     .AddCookie(PlayerSessionAuthentication.Scheme, options =>
     {
         options.LoginPath = "/squadra/accesso";
-        options.Cookie.Name = "ArciQuiz.Squadra";
+        options.Cookie.Name = PlayerSessionAuthentication.CookieName;
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(PlayerSessionAuthentication.AuthorizationPolicy, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(PlayerSessionAuthentication.PlayerIdClaimType);
+    });
+});
 
 // Add services to the container.
 builder.Services.AddSingleton<IGameStateService, GameStateService>();
 builder.Services.AddSingleton<ILanAddressService, LanAddressService>();
 builder.Services.AddSingleton<ILanUrlService, LanUrlService>();
 builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHostedService<GameTimerBackgroundService>();
 
 
 builder.Services.AddRazorComponents()
@@ -168,12 +188,77 @@ app.MapPost("/logout", async (HttpContext context, IAntiforgery antiforgery) =>
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Redirect("/login");
 });
+app.MapGet("/gioca", async (HttpContext context, IDbContextFactory<ArciQuizDbContext> dbFactory) =>
+{
+    var authentication = await context.AuthenticateAsync(PlayerSessionAuthentication.Scheme);
+    var playerIdValue = authentication.Principal?.FindFirst(PlayerSessionAuthentication.PlayerIdClaimType)?.Value;
+    var sessionToken = authentication.Principal?.FindFirst(PlayerSessionAuthentication.SessionTokenClaimType)?.Value;
+    int? playerId = int.TryParse(playerIdValue, out var parsedPlayerId) ? parsedPlayerId : null;
+
+    await using var db = await dbFactory.CreateDbContextAsync();
+    var destination = await PlayerEntryService.ResolveAsync(db, playerId, sessionToken);
+    if (destination.Destination == PlayerEntryDestination.TeamArea)
+        return Results.Redirect("/squadra");
+
+    if (authentication.Succeeded)
+        await context.SignOutAsync(PlayerSessionAuthentication.Scheme);
+
+    return destination.Destination switch
+    {
+        PlayerEntryDestination.RegistrationOrLogin => Results.Content(PlayerEntryPage(), "text/html; charset=utf-8"),
+        PlayerEntryDestination.Login => Results.Redirect("/squadra/accesso"),
+        _ => Results.Content(NoGamePage(), "text/html; charset=utf-8")
+    };
+});
+app.MapGet("/squadra/registrazione", async (HttpContext context, IAntiforgery antiforgery, IDbContextFactory<ArciQuizDbContext> dbFactory) =>
+{
+    await using var db = await dbFactory.CreateDbContextAsync();
+    var entry = await PlayerEntryService.ResolveAsync(db, null, null);
+    if (entry.Destination != PlayerEntryDestination.RegistrationOrLogin)
+        return Results.Redirect("/gioca");
+
+    var token = antiforgery.GetAndStoreTokens(context).RequestToken;
+    return Results.Content(PlayerRegistrationPage(token, null), "text/html; charset=utf-8");
+});
+app.MapPost("/squadra/registrazione", async (
+    HttpContext context,
+    IAntiforgery antiforgery,
+    IDbContextFactory<ArciQuizDbContext> dbFactory,
+    TimeProvider timeProvider) =>
+{
+    await antiforgery.ValidateRequestAsync(context);
+    var form = await context.Request.ReadFormAsync();
+    await using var db = await dbFactory.CreateDbContextAsync();
+    var registration = await SquadreService.RegistraAsync(db, null, form["nomeSquadra"], form["password"], isAdmin: false);
+    if (!registration.IsSuccess)
+    {
+        var token = antiforgery.GetAndStoreTokens(context).RequestToken;
+        return Results.Content(PlayerRegistrationPage(token, registration.Messaggio), "text/html; charset=utf-8", statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    var login = await PlayerSessionService.AccediAsync(db, null, form["nomeSquadra"], form["password"]);
+    if (!login.IsSuccess)
+    {
+        var token = antiforgery.GetAndStoreTokens(context).RequestToken;
+        return Results.Content(PlayerRegistrationPage(token, login.Messaggio), "text/html; charset=utf-8", statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    await context.SignInAsync(
+        PlayerSessionAuthentication.Scheme,
+        PlayerSessionAuthentication.CreatePrincipal(login.SquadraId!.Value, login.SessionToken!),
+        PlayerSessionAuthentication.CreatePersistentProperties(timeProvider));
+    return Results.Redirect("/squadra");
+});
 app.MapGet("/squadra/accesso", (HttpContext context, IAntiforgery antiforgery) =>
 {
     var token = antiforgery.GetAndStoreTokens(context).RequestToken;
     return Results.Content(PlayerLoginPage(token, null), "text/html; charset=utf-8");
 });
-app.MapPost("/squadra/accesso", async (HttpContext context, IAntiforgery antiforgery, IDbContextFactory<ArciQuizDbContext> dbFactory) =>
+app.MapPost("/squadra/accesso", async (
+    HttpContext context,
+    IAntiforgery antiforgery,
+    IDbContextFactory<ArciQuizDbContext> dbFactory,
+    TimeProvider timeProvider) =>
 {
     await antiforgery.ValidateRequestAsync(context);
     var form = await context.Request.ReadFormAsync();
@@ -185,13 +270,10 @@ app.MapPost("/squadra/accesso", async (HttpContext context, IAntiforgery antifor
         return Results.Content(PlayerLoginPage(token, result.Messaggio), "text/html; charset=utf-8", statusCode: StatusCodes.Status401Unauthorized);
     }
 
-    var claims = new[]
-    {
-        new Claim(PlayerSessionAuthentication.PlayerIdClaimType, result.SquadraId!.Value.ToString()),
-        new Claim(PlayerSessionAuthentication.SessionTokenClaimType, result.SessionToken!)
-    };
-    var identity = new ClaimsIdentity(claims, PlayerSessionAuthentication.Scheme);
-    await context.SignInAsync(PlayerSessionAuthentication.Scheme, new ClaimsPrincipal(identity));
+    await context.SignInAsync(
+        PlayerSessionAuthentication.Scheme,
+        PlayerSessionAuthentication.CreatePrincipal(result.SquadraId!.Value, result.SessionToken!),
+        PlayerSessionAuthentication.CreatePersistentProperties(timeProvider));
     return Results.Redirect("/squadra");
 });
 app.MapGet("/squadra/esci", (HttpContext context, IAntiforgery antiforgery) =>
@@ -227,12 +309,13 @@ static string LoginPage(string? antiforgeryToken, string? error)
 {
     var errorMessage = string.IsNullOrWhiteSpace(error) ? string.Empty : $"<p role=\"alert\">{System.Net.WebUtility.HtmlEncode(error)}</p>";
     return $"""
-        <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso amministratore</title></head>
-        <body><main><h1>Accesso amministratore</h1>{errorMessage}
+        {PlayerPageHead("Login admin")}<body><main><h1>Login admin</h1>
+        <p>Accedi alla configurazione e alla regia della partita.</p>{errorMessage}
         <form method="post" action="/login"><input type="hidden" name="__RequestVerificationToken" value="{System.Net.WebUtility.HtmlEncode(antiforgeryToken)}">
-        <label>Utente <input name="username" autocomplete="username" required></label><br>
-        <label>Password <input type="password" name="password" autocomplete="current-password" required></label><br>
-        <button type="submit">Accedi</button></form></main></body></html>
+        <label>Utente<input name="username" autocomplete="username" required></label>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+        <button type="submit">Accedi come admin</button></form>
+        <a class="action secondary" href="/squadra/accesso">Vai al login squadra</a></main></body></html>
         """;
 }
 
@@ -247,14 +330,58 @@ static string PlayerLoginPage(string? antiforgeryToken, string? error)
 {
     var errorMessage = string.IsNullOrWhiteSpace(error) ? string.Empty : $"<p role=\"alert\">{System.Net.WebUtility.HtmlEncode(error)}</p>";
     return $"""
-        <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso squadra</title></head>
-        <body><main><h1>Accesso squadra</h1>{errorMessage}
+        {PlayerPageHead("Login squadra")}<body><main><h1>Login squadra</h1>
+        <p>Inserite le credenziali scelte durante l'iscrizione.</p>{errorMessage}
         <form method="post" action="/squadra/accesso"><input type="hidden" name="__RequestVerificationToken" value="{System.Net.WebUtility.HtmlEncode(antiforgeryToken)}">
-        <label>Nome squadra <input name="nomeSquadra" autocomplete="username" required></label><br>
-        <label>Password <input type="password" name="password" autocomplete="current-password" required></label><br>
-        <button type="submit">Accedi</button></form></main></body></html>
+        <label>Nome squadra<input name="nomeSquadra" autocomplete="username" maxlength="80" required></label>
+        <label>Password<input type="password" name="password" autocomplete="current-password" maxlength="100" required></label>
+        <button type="submit">Entra nella partita</button></form>
+        <a class="action secondary" href="/gioca">Torna all'ingresso squadra</a>
+        <a class="action secondary" href="/login">Vai al login admin</a></main></body></html>
         """;
 }
+
+static string PlayerRegistrationPage(string? antiforgeryToken, string? error)
+{
+    var errorMessage = string.IsNullOrWhiteSpace(error) ? string.Empty : $"<p role=\"alert\">{System.Net.WebUtility.HtmlEncode(error)}</p>";
+    return $"""
+        {PlayerPageHead("Iscrizione squadra")}<body><main><h1>Iscrivi la squadra</h1>
+        <p>Scegliete nome e password. Dopo la conferma entrerete direttamente nella partita.</p>{errorMessage}
+        <form method="post" action="/squadra/registrazione"><input type="hidden" name="__RequestVerificationToken" value="{System.Net.WebUtility.HtmlEncode(antiforgeryToken)}">
+        <label>Nome squadra<input name="nomeSquadra" autocomplete="username" maxlength="80" required></label>
+        <label>Password<input type="password" name="password" autocomplete="new-password" maxlength="100" required></label>
+        <button type="submit">Iscriviti e continua</button></form>
+        <a class="action secondary" href="/gioca">Torna indietro</a></main></body></html>
+        """;
+}
+
+static string PlayerEntryPage() => $"""
+    {PlayerPageHead("Partecipa ad ArciQuiz")}<body><main><h1>Partecipa ad ArciQuiz</h1>
+    <p>Scegli come entrare nella partita.</p>
+    <a class="action" href="/squadra/registrazione">Nuova squadra</a>
+    <a class="action secondary" href="/squadra/accesso">Squadra già iscritta</a>
+    </main></body></html>
+    """;
+
+static string NoGamePage() => $"""
+    {PlayerPageHead("ArciQuiz")}<body><main><h1>Nessuna partita disponibile</h1>
+    <p>Attendi le indicazioni del presentatore e riprova dal QR.</p>
+    <a class="action secondary" href="/gioca">Riprova</a></main></body></html>
+    """;
+
+static string PlayerPageHead(string title) => $$"""
+    <!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{System.Net.WebUtility.HtmlEncode(title)}}</title>
+    <style>
+    * { box-sizing: border-box; } body { margin: 0; background: #f4f6f8; color: #172033; font-family: system-ui, sans-serif; }
+    main { width: min(100%, 32rem); min-height: 100vh; margin: 0 auto; padding: 2rem 1.25rem; background: white; }
+    h1 { font-size: clamp(2rem, 9vw, 3rem); line-height: 1.05; } p { font-size: 1.1rem; line-height: 1.5; }
+    label { display: block; margin: 1.25rem 0; font-weight: 700; } input { width: 100%; min-height: 3.25rem; margin-top: .4rem; padding: .75rem; font: inherit; border: 2px solid #aab3c2; border-radius: .75rem; }
+    button, .action { display: block; width: 100%; min-height: 3.5rem; margin-top: 1rem; padding: .9rem; border: 0; border-radius: .8rem; background: #1457d9; color: white; font: inherit; font-weight: 800; text-align: center; text-decoration: none; }
+    .secondary { background: #e8edf5; color: #172033; } [role=alert] { padding: 1rem; border-radius: .75rem; background: #ffe4e4; color: #8b1515; }
+    </style></head>
+    """;
 
 static string PlayerLogoutPage(string? antiforgeryToken) => $"""
     <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Esci dalla squadra</title></head>

@@ -10,6 +10,7 @@
 
 @inject IGameStateService GameState
 @inject IDbContextFactory<ArciQuizDbContext> DbFactory
+@inject TimeProvider Clock
 
 <PageTitle>Proiettore</PageTitle>
 
@@ -40,6 +41,14 @@ else
                 <p style="font-size:1.2rem;">
                     Phase: @_view.Phase
                 </p>
+                @if (_view.Domanda is not null)
+                {
+                    <LanQr Title="Rientra nel gioco"
+                           RelativePath="/gioca"
+                           MaxWidthPx="120"
+                           ShowLink="false"
+                           CssClass="d-inline-block" />
+                }
             </div>
         </div>
 
@@ -48,8 +57,8 @@ else
             <div class="d-flex justify-content-center align-items-center" style="height:60vh; flex-direction:column; gap:1rem;">
                 <h2 style="font-size:3rem;">@_view.PlaceholderText</h2>
 
-                <LanQr Title="Scansiona per aprire il proiettore"
-                       RelativePath="@($"/proiettore/{PartitaId}")"
+                <LanQr Title="Scansiona per partecipare"
+                       RelativePath="/gioca"
                        MaxWidthPx="320"
                        ShowLink="false"
                        CssClass="mt-0" />
@@ -85,7 +94,20 @@ else
             </div>
 
             <div class="mt-4 text-muted" style="font-size:1.2rem;">
-                In attesa delle risposte dei giocatori...
+                @if (_view.MostraSoluzione)
+                {
+                    <strong>Soluzione corretta: @_view.Domanda.RispostaEsatta</strong>
+                }
+                else if (_view.PhaseEndsAtUtc.HasValue)
+                {
+                    <div style="font-size:2rem;">
+                        Tempo rimasto: <ServerCountdown EndsAtUtc="_view.PhaseEndsAtUtc.Value" />
+                    </div>
+                }
+                else
+                {
+                    <span>In attesa delle risposte dei giocatori...</span>
+                }
             </div>
         }
     </div>
@@ -102,9 +124,8 @@ else
     // Dedup: evita ricarichi doppi se arriva lo stesso stato
     private long _lastVersion = -1;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // subscribe push
         _sub = GameState.Subscribe(state =>
         {
             // Filtra: questa pagina ascolta solo la sua partita
@@ -121,6 +142,16 @@ else
                 StateHasChanged();
             });
         });
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var persistedState = await PartitaStateMachineService.CaricaStatoAsync(db, PartitaId, Clock);
+        if (persistedState is not null)
+        {
+            await LoadFromStateAsync(persistedState);
+            _lastVersion = persistedState.Version;
+        }
+
+        _isLoading = false;
     }
 
     private async Task LoadFromStateAsync(GameState state)
@@ -174,12 +205,27 @@ else
             return;
         }
 
+        if (state.Phase == GamePhase.Leaderboard)
+        {
+            _view = new ProjectorViewModel
+            {
+                PartitaTitolo = partita.Titolo,
+                MancheId = manche.Id,
+                MancheStato = manche.Stato.ToString(),
+                Phase = state.Phase.ToString(),
+                PlaceholderText = "Classifica"
+            };
+            return;
+        }
+
         _view = new ProjectorViewModel
         {
             PartitaTitolo = partita.Titolo,
             MancheId = manche.Id,
             MancheStato = manche.Stato.ToString(),
             Phase = state.Phase.ToString(),
+            MostraSoluzione = state.Phase == GamePhase.ShowingAnswers,
+            PhaseEndsAtUtc = state.PhaseEndsAtUtc,
             Domanda = new DomandaVm
             {
                 Index = md.Index,
@@ -189,7 +235,8 @@ else
                 RispostaA = md.Domanda.RispostaA ?? "",
                 RispostaB = md.Domanda.RispostaB ?? "",
                 RispostaC = md.Domanda.RispostaC ?? "",
-                RispostaD = md.Domanda.RispostaD ?? ""
+                RispostaD = md.Domanda.RispostaD ?? "",
+                RispostaEsatta = md.Domanda.RispostaEsatta
             }
         };
     }
@@ -203,6 +250,8 @@ else
         public string MancheStato { get; set; } = "—";
         public string Phase { get; set; } = "—";
         public string PlaceholderText { get; set; } = "In attesa...";
+        public bool MostraSoluzione { get; set; }
+        public DateTimeOffset? PhaseEndsAtUtc { get; set; }
 
         public DomandaVm? Domanda { get; set; }
     }
@@ -217,5 +266,6 @@ else
         public string RispostaB { get; set; } = "";
         public string RispostaC { get; set; } = "";
         public string RispostaD { get; set; } = "";
+        public char RispostaEsatta { get; set; }
     }
 }

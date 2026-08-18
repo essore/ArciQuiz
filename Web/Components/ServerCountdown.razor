@@ -1,0 +1,51 @@
+@implements IAsyncDisposable
+@inject TimeProvider TimeProvider
+
+<span role="timer" aria-live="polite">@_remainingSeconds s</span>
+
+@code {
+    [Parameter] public DateTimeOffset EndsAtUtc { get; set; }
+
+    private readonly CancellationTokenSource _disposeToken = new();
+    private int _remainingSeconds;
+
+    protected override void OnInitialized()
+    {
+        UpdateRemainingSeconds();
+        _ = RunCountdownAsync();
+    }
+
+    protected override void OnParametersSet() => UpdateRemainingSeconds();
+
+    private async Task RunCountdownAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1), TimeProvider);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_disposeToken.Token))
+            {
+                UpdateRemainingSeconds();
+                await InvokeAsync(StateHasChanged);
+                if (_remainingSeconds == 0)
+                    break;
+            }
+        }
+        catch (OperationCanceledException) when (_disposeToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void UpdateRemainingSeconds()
+    {
+        _remainingSeconds = Math.Max(
+            0,
+            (int)Math.Ceiling((EndsAtUtc - TimeProvider.GetUtcNow()).TotalSeconds));
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _disposeToken.Cancel();
+        _disposeToken.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

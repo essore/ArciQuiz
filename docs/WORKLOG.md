@@ -13,6 +13,161 @@ Ogni voce deve indicare:
 
 ---
 
+## 2026-08-18 - Semplificare l'apertura del proiettore dalla regia
+
+- Task: modifica UX richiesta esplicitamente dal proprietario.
+- Risultato:
+  - rimosso dalla pagina regia il QR diretto al proiettore;
+  - mantenuto invariato il bottone `Apri proiettore`, che continua ad aprire la vista in una nuova scheda;
+  - rimossi injection, campi e codice commentato LAN/QR rimasti inutilizzati nel componente.
+- File principali: `Web/Components/Pages/RegiaPartita.razor`, `docs/WORKLOG.md`.
+- Verifiche:
+  - build completa su output temporaneo separato: riuscita con 0 errori e 3 avvisi noti;
+  - suite completa sullo stesso output: 63 test superati;
+  - ricerca nel componente: nessun riferimento residuo a QR, `LanQr`, `ILanAddressService` o `IQrCodeService`; bottone `Apri proiettore` presente.
+- Rischi residui: la build standard resta subordinata all'arresto dell'istanza `Web.exe` avviata dal proprietario; la compilazione degli stessi sorgenti su output separato è riuscita.
+
+---
+
+## 2026-08-18 - Distinguere login e navigazione per ruolo
+
+- Task: miglioramento UX richiesto esplicitamente dal proprietario dopo la separazione delle autenticazioni admin e squadra.
+- Risultato:
+  - le pagine mostrano chiaramente `Login admin` e `Login squadra`, con un pulsante reciproco per passare all'altro accesso;
+  - il menu usa la policy squadra: il giocatore vede soltanto `Partita` ed `Esci dalla squadra`, mentre il menu admin mantiene Home, gestione domande e logout amministrativo;
+  - brand del menu distinti in `ArciQuiz Squadra` e `ArciQuiz Admin`.
+- File principali: `Web/Program.cs`, `Web/Components/Layout/NavMenu.razor`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - build completa su output temporaneo separato: riuscita con 0 errori e 5 avvisi noti;
+  - suite completa sullo stesso output: 63 test superati;
+  - smoke HTTP: titoli e pulsanti reciproci presenti; dopo login il menu squadra contiene soltanto brand squadra, partita e logout squadra, senza voci amministrative.
+- Rischi residui:
+  - la build standard nella cartella `bin` non è stata possibile perché l'istanza del proprietario `Web.exe` PID 26300 era in esecuzione; non è stata arrestata;
+  - gli artefatti di verifica restano in `%TEMP%\arciquiz-menu-build` perché la rimozione di file temporanei non è stata autorizzata nella sessione.
+
+---
+
+## 2026-08-18 - Correzione autenticazione area squadra
+
+- Task: correzione regressione segnalata dal proprietario dopo AQ-024/AQ-025.
+- Problema: dopo il login da `/gioca`, il cookie squadra veniva creato ma il circuito Blazor autenticava soltanto lo schema predefinito admin; `AuthorizeRouteView` considerava quindi la squadra anonima e `RedirectToLogin` la inviava a `/login`.
+- Risultato:
+  - aggiunto uno schema di autenticazione selettore che usa il cookie squadra per `/squadra/*` e per il circuito `/_blazor` quando quel cookie è presente, mantenendo il cookie admin sulle altre richieste;
+  - la policy squadra richiede autenticazione e claim identificativo della squadra, senza poter essere soddisfatta da una sessione admin;
+  - il redirect dei componenti non autorizzati riconosce l'area squadra e torna all'ingresso `/gioca` invece del login amministrativo;
+  - aggiunti sei casi di test sulla selezione dello schema, inclusa la connessione interattiva Blazor con e senza cookie squadra.
+- File principali: `Web/Program.cs`, `Web/Services/PlayerSessionService.cs`, `Web/Components/RedirectToLogin.razor`, `Core.Tests/PlayerEntryServiceTests.cs`.
+- Verifiche:
+  - test mirati `PlayerEntryServiceTests|PlayerGameViewServiceTests`: 21 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 63 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 3 avvisi noti;
+  - smoke HTTP su server e database temporanei: login squadra termina su `/squadra`, mostra la squadra e non il login admin; rientro da `/gioca` torna a `/squadra`; `/admin` anonimo continua a terminare su `/login`.
+- Rischi residui:
+  - il database `arciquiz-auth-fix-smoke.db` resta nella cartella temporanea del profilo perché l'autorizzazione alla sua rimozione è stata rifiutata; non appartiene al repository e non contiene dati reali.
+
+---
+
+## 2026-08-18 - AQ-025 Creare la shell mobile-first della squadra
+
+- Task: AQ-025, assegnato esplicitamente dal proprietario insieme ad AQ-024.
+- Risultato:
+  - sostituita la pagina squadra prototipale con una shell mobile-first per attesa, domanda, tempo scaduto, soluzione, classifica, fine manche e fine partita;
+  - introdotto un view model server-side che valida la sessione esclusiva e include domanda, opzioni, scadenza e soluzione soltanto nelle fasi consentite;
+  - refresh, notifiche di stato e rientro dal QR ricaricano la vista dal database; nome squadra e stato connessione rimangono riconoscibili;
+  - corretta durante lo smoke la protezione del componente usando una policy dedicata allo schema cookie squadra, perché Blazor non supporta `AuthenticationSchemes` direttamente sull'attributo del componente;
+  - `AQ-025` dichiarato `DONE` e `AQ-032` promosso a `READY`, senza avviarlo.
+- File principali: `Web/Services/PlayerGameViewService.cs`, `Web/Components/Pages/SquadraSessione.razor`, `Web/Components/Pages/SquadraSessione.razor.css`, `Web/Program.cs`, `Core.Tests/PlayerGameViewServiceTests.cs`.
+- Verifiche:
+  - test mirati `PlayerEntryServiceTests|PlayerGameViewServiceTests`: 15 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 57 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 5 avvisi noti;
+  - smoke HTTP su server e database temporanei: login, rendering dello stato di attesa e rientro da `/gioca` con la stessa sessione verificati; database temporaneo rimosso;
+  - `dotnet tool run dotnet-ef migrations has-pending-model-changes --project Infrasctructure/Infrasctructure.csproj --startup-project Web/Web.csproj --no-build`: nessuna modifica modello pendente.
+- Rischi residui:
+  - il plugin browser integrato non si è inizializzato a causa del percorso Windows del profilo contenente spazi; non è stato quindi possibile acquisire uno screenshot a larghezza mobile. Viewport, CSS responsive e flusso runtime HTTP sono stati verificati;
+  - selezione e conferma della risposta appartengono ad AQ-032 e non sono state avviate.
+
+---
+
+## 2026-08-18 - AQ-024 Creare l'ingresso unico della squadra
+
+- Task: AQ-024, assegnato esplicitamente dal proprietario dopo l'analisi del flusso utente.
+- Risultato:
+  - aggiunto `/gioca` come ingresso stabile per ogni QR del proiettore, con routing server-side verso registrazione, login o area squadra in base a stato e sessione;
+  - la registrazione HTTP protetta da antiforgery crea immediatamente sessione esclusiva e cookie persistente per 12 ore; un token sostituito nel database continua a invalidare il vecchio dispositivo;
+  - aggiunti percorsi mobile chiari per lobby, partita iniziata, partita conclusa, assenza partita e sessione sostituita; il vecchio `/registrazione` reindirizza all'ingresso supportato;
+  - `AQ-024` dichiarato `DONE`; AQ-025 è stato poi eseguito per assegnazione esplicita del proprietario.
+- File principali: `Web/Services/PlayerEntryService.cs`, `Web/Services/PlayerSessionService.cs`, `Web/Program.cs`, `Web/Components/Pages/LobbyProiettore.razor`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Core.Tests/PlayerEntryServiceTests.cs`.
+- Verifiche:
+  - test mirati `PlayerEntryServiceTests|PlayerGameViewServiceTests`: 15 test superati;
+  - suite completa e build riportate nella voce AQ-025;
+  - smoke HTTP su server e database temporanei: `/gioca` in lobby, form mobile con antiforgery, registrazione con autenticazione immediata e rientro dal QR verificati; database temporaneo rimosso.
+- Rischi residui: nessuno specifico per l'ingresso unico; l'invio risposta rimane deliberatamente fuori ambito.
+
+---
+
+## 2026-08-18 - AQ-031 Implementare timer server-authoritative
+
+- Task: AQ-031.
+- Risultato:
+  - la macchina a stati persiste `ScadenzaUtc` all'apertura della domanda usando il tempo standard della manche o l'override della singola domanda;
+  - aggiunti `GameTimerService` per chiusura e validazione temporale e un `BackgroundService` che chiude automaticamente le domande scadute e notifica le UI;
+  - proiettore e area squadra usano lo stesso componente countdown basato su `TimeProvider`, mentre l'accettazione resta decisa esclusivamente dal server;
+  - configurazione e validazione supportano la durata personalizzata della domanda e rifiutano durate non positive anche se la UI viene bypassata;
+  - `AQ-031` dichiarato `DONE` e `AQ-032` promosso a `READY`, senza avviarlo.
+- File principali: `Web/Services/GameTimerService.cs`, `Web/Services/GameTimerBackgroundService.cs`, `Web/Services/PartitaStateMachineService.cs`, `Web/Components/ServerCountdown.razor`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Web/Components/Pages/SquadraSessione.razor`, `Web/Components/Pages/MancheDomandeConfig.razor`, `Core.Tests/GameTimerServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter "FullyQualifiedName~GameTimerServiceTests"`: 5 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 42 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 3 avvisi noti;
+  - test con `TimeProvider` manuale su durata standard, override, istante limite e riapertura del database superati.
+- Rischi residui:
+  - lo smoke test runtime aggiuntivo non è stato eseguito perché l'autorizzazione all'avvio locale è stata rifiutata; test e build richiesti dal task sono completi;
+  - la registrazione delle risposte dovrà chiamare `GameTimerService.VerificaRispostaAsync` in AQ-032;
+  - restano la vulnerabilità transitiva SQLite e la credenziale admin predefinita già note.
+
+---
+
+## 2026-08-18 - AQ-030 Implementare la macchina a stati persistente
+
+- Task: AQ-030.
+- Risultato:
+  - aggiunta la fase persistente della partita con migrazione compatibile con partite esistenti;
+  - introdotto un servizio testabile per le transizioni lobby, domanda, soluzione, classifica, fine manche e fine partita;
+  - i comandi usano gli identificativi attesi di manche/domanda per rendere innocui i retry e rifiutano le transizioni fuori sequenza;
+  - regia e proiettore derivano lo stato dal database; il singleton rimane soltanto un canale di notifica e il proiettore recupera la fase dopo la ricreazione del contesto;
+  - `AQ-030` dichiarato `DONE` e `AQ-031` promosso a `READY`, senza avviarlo.
+- File principali: `Web/Services/PartitaStateMachineService.cs`, `Core/Entities/Partita.cs`, `Core/Enums/GamePhase.cs`, `Web/Components/Pages/RegiaPartita.razor`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Infrasctructure/Migrations/20260818122159_AddPersistentGamePhase.cs`, `Core.Tests/PartitaStateMachineServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter "FullyQualifiedName~PartitaStateMachineServiceTests"`: 5 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 36 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 3 avvisi noti;
+  - smoke test con database temporaneo separato: migrazioni applicate, proiettore e lobby hanno restituito `200`, regia anonima `302` verso il login; database temporaneo rimosso.
+- Rischi residui:
+  - timer e accettazione effettiva delle risposte appartengono rispettivamente ad AQ-031 e AQ-032;
+  - restano la vulnerabilità transitiva SQLite e la credenziale admin predefinita già note.
+
+---
+
+## 2026-08-18 - Chiusura AQ-023 Completare la lobby pubblica
+
+- Task: AQ-023, eseguito su priorità esplicita del proprietario prima di AQ-022.
+- Risultato:
+  - aggiunta la lobby pubblica `/lobby/{id}` per proiettore, derivata dallo stato persistito `Pronta`, con QR di iscrizione e conteggio squadre aggiornato ogni due secondi;
+  - estratto `LanUrlService`, che genera URL con IP LAN e porta/scheme dall'endpoint Kestrel configurato, senza porta hardcoded nei componenti QR;
+  - la lobby segnala la chiusura delle iscrizioni al passaggio persistito a `InCorso`;
+  - `AQ-023` dichiarato `DONE`; con AQ-022 nel frattempo completato, `AQ-030` promosso a `READY`.
+- File principali: `Web/Services/LanUrlService.cs`, `Web/Components/Pages/LobbyProiettore.razor`, `Web/Components/LanQr.razor`, `Core.Tests/LanUrlServiceTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter "FullyQualifiedName~LanUrlServiceTests"`: 2 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 31 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 3 avvisi;
+  - smoke test LAN del proprietario: QR, registrazione, aggiornamento conteggio e chiusura lobby verificati con esito positivo.
+- Rischi residui:
+  - credenziale admin predefinita presente in `Web/appsettings.json`, modifica preesistente fuori dall'ambito AQ-023.
+
+---
+
 ## 2026-08-18 - Chiusura AQ-022 Rendere esclusiva la sessione del dispositivo squadra
 
 - Task: AQ-022.

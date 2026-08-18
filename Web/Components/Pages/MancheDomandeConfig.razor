@@ -53,6 +53,7 @@ else
                             <th>Ordine</th>
                             <th>Testo</th>
                             <th>Moltiplicatore</th>
+                            <th>Tempo (s)</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -69,6 +70,12 @@ else
                                     <input type="number" class="form-control form-control-sm"
                                            style="width:80px"
                                            @bind="md.ModificatorePunti" min="1" max="10" />
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm"
+                                           style="width:110px"
+                                           @bind="md.DurataSecondiOverride" min="5" max="300"
+                                           placeholder="@_manche.TempoRispostaSecondi" />
                                 </td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-secondary me-1"
@@ -259,6 +266,7 @@ else
 
                 mancheDomanda.Index = domanda.Index;
                 mancheDomanda.ModificatorePunti = domanda.ModificatorePunti;
+                mancheDomanda.DurataSecondiOverride = domanda.DurataSecondiOverride;
             }
 
             await db.SaveChangesAsync();

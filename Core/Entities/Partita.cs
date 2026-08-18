@@ -9,6 +9,7 @@ namespace Core.Entities
         public int Id { get; set; }
         public DateTime DtCreazione { get; set; } = DateTime.UtcNow;
         public PartitaStato Stato { get; set; } = PartitaStato.Nuova;
+        public GamePhase Fase { get; set; } = GamePhase.Idle;
         public string Titolo { get; set; } = string.Empty;
 
         public int? CurrentMancheId { get; set; }

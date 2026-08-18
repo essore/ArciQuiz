@@ -1,45 +1,144 @@
 @page "/squadra"
-@attribute [Authorize(AuthenticationSchemes = PlayerSessionAuthentication.Scheme)]
+@attribute [Authorize(Policy = PlayerSessionAuthentication.AuthorizationPolicy)]
 @rendermode InteractiveServer
+@implements IDisposable
 
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
 @using Web.Services
 @inject IDbContextFactory<ArciQuizDbContext> DbFactory
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IGameStateService GameState
+@inject TimeProvider Clock
 
-<PageTitle>Squadra</PageTitle>
+<PageTitle>Gioca - ArciQuiz</PageTitle>
 
-<h1>Area squadra</h1>
+<main class="team-shell">
+    @if (_isLoading)
+    {
+        <p class="team-status">Caricamento partita...</p>
+    }
+    else if (_sessioneSostituita || _view is null)
+    {
+        <section class="team-panel warning" role="alert">
+            <h1>Sessione non disponibile</h1>
+            <p>Questa sessione è scaduta oppure è stata sostituita da un accesso più recente.</p>
+            <a class="team-action" href="/gioca">Rientra dal QR</a>
+        </section>
+    }
+    else
+    {
+        <header class="team-header">
+            <div>
+                <span class="team-eyebrow">@_view.GameTitle</span>
+                <h1>@_view.TeamName</h1>
+            </div>
+            <span class="connection-badge">Connessa</span>
+        </header>
 
-@if (_sessioneSostituita)
-{
-    <div class="alert alert-warning" role="alert">
-        Questa sessione è stata sostituita da un accesso più recente su un altro dispositivo. Accedi di nuovo per continuare.
-    </div>
-    <a class="btn btn-primary" href="/squadra/accesso">Accedi</a>
-}
-else
-{
-    <div class="alert alert-success">Dispositivo collegato. Attendi l'avvio della prossima domanda.</div>
-    <a class="btn btn-outline-secondary" href="/squadra/esci">Esci</a>
-}
+        @switch (_view.Screen)
+        {
+            case PlayerGameScreen.Question:
+                <section class="team-panel question-panel">
+                    <div class="question-meta">
+                        <span>Domanda @_view.QuestionIndex</span>
+                        @if (_view.DeadlineUtc.HasValue)
+                        {
+                            <strong><ServerCountdown EndsAtUtc="_view.DeadlineUtc.Value" /></strong>
+                        }
+                    </div>
+                    <h2>@_view.QuestionText</h2>
+                    <div class="answer-grid" aria-label="Opzioni di risposta">
+                        @foreach (var option in _view.Options)
+                        {
+                            <div class="answer-option"><strong>@option.Code</strong><span>@option.Text</span></div>
+                        }
+                    </div>
+                    <p class="team-hint">La selezione e la conferma della risposta saranno abilitate nel prossimo passaggio.</p>
+                </section>
+                break;
+
+            case PlayerGameScreen.TimeExpired:
+                <section class="team-panel warning">
+                    <h2>Tempo scaduto</h2>
+                    <p>Non è più possibile inviare una risposta. Guarda il proiettore per la soluzione.</p>
+                </section>
+                break;
+
+            case PlayerGameScreen.Solution:
+                <section class="team-panel solution">
+                    <span class="team-eyebrow">Soluzione</span>
+                    <h2>@_view.QuestionText</h2>
+                    <p class="solution-answer">Risposta corretta: <strong>@_view.CorrectAnswer</strong></p>
+                    <p>Il risultato personale sarà disponibile con il calcolo del punteggio.</p>
+                </section>
+                break;
+
+            case PlayerGameScreen.Leaderboard:
+                <section class="team-panel"><h2>Classifica</h2><p>Guarda il proiettore per la classifica aggiornata.</p></section>
+                break;
+
+            case PlayerGameScreen.RoundEnded:
+                <section class="team-panel"><h2>Manche conclusa</h2><p>La prossima manche inizierà dalla regia.</p></section>
+                break;
+
+            case PlayerGameScreen.GameEnded:
+                <section class="team-panel solution"><h2>Partita conclusa</h2><p>Grazie per aver giocato! Guarda il proiettore per il podio.</p></section>
+                break;
+
+            default:
+                <section class="team-panel"><h2>Squadra collegata</h2><p>Attendi l'avvio della prossima domanda e tieni d'occhio il proiettore.</p></section>
+                break;
+        }
+
+        <footer class="team-footer"><a href="/squadra/esci">Esci dalla squadra</a></footer>
+    }
+</main>
 
 @code {
+    private int _playerId;
+    private string? _sessionToken;
+    private int? _partitaId;
+    private PlayerGameView? _view;
+    private bool _isLoading = true;
     private bool _sessioneSostituita;
+    private IDisposable? _subscription;
 
+    // Recupera identità e vista dal server e ascolta soltanto notifiche della partita associata.
     protected override async Task OnInitializedAsync()
     {
-        var stato = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var squadraIdValue = stato.User.FindFirst(PlayerSessionAuthentication.PlayerIdClaimType)?.Value;
-        var token = stato.User.FindFirst(PlayerSessionAuthentication.SessionTokenClaimType)?.Value;
-        if (!int.TryParse(squadraIdValue, out var squadraId))
+        var authentication = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var playerIdValue = authentication.User.FindFirst(PlayerSessionAuthentication.PlayerIdClaimType)?.Value;
+        _sessionToken = authentication.User.FindFirst(PlayerSessionAuthentication.SessionTokenClaimType)?.Value;
+        if (!int.TryParse(playerIdValue, out _playerId))
         {
             _sessioneSostituita = true;
+            _isLoading = false;
             return;
         }
 
-        await using var db = await DbFactory.CreateDbContextAsync();
-        _sessioneSostituita = !await PlayerSessionService.SessioneValidaAsync(db, squadraId, token);
+        await ReloadViewAsync();
+        if (!_sessioneSostituita && _partitaId.HasValue)
+        {
+            _subscription = GameState.Subscribe(state =>
+            {
+                if (state.PartitaId == _partitaId)
+                    _ = InvokeAsync(ReloadViewAsync);
+            });
+        }
+
+        _isLoading = false;
     }
+
+    private async Task ReloadViewAsync()
+    {
+        await using var database = await DbFactory.CreateDbContextAsync();
+        var result = await PlayerGameViewService.LoadAsync(database, _playerId, _sessionToken, Clock);
+        _sessioneSostituita = !result.SessionValid;
+        _view = result.View;
+        _partitaId = result.View?.PartitaId;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => _subscription?.Dispose();
 }

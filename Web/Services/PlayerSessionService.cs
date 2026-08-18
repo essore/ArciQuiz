@@ -1,14 +1,45 @@
 using Core.Entities;
 using Infrasctructure.Data;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace Web.Services;
 
 public static class PlayerSessionAuthentication
 {
+    public const string SelectorScheme = "ArciQuiz.Autenticazione";
     public const string Scheme = "ArciQuiz.Squadra";
+    public const string CookieName = "ArciQuiz.Squadra";
+    public const string AuthorizationPolicy = "ArciQuiz.Squadra.Autenticata";
     public const string PlayerIdClaimType = "arciquiz:player-id";
     public const string SessionTokenClaimType = "arciquiz:session-token";
+    private static readonly TimeSpan SessionDuration = TimeSpan.FromHours(12);
+
+    public static string SelectScheme(PathString path, bool hasPlayerCookie = false) =>
+        path.StartsWithSegments("/squadra")
+            || (path.StartsWithSegments("/_blazor") && hasPlayerCookie)
+            ? Scheme
+            : CookieAuthenticationDefaults.AuthenticationScheme;
+
+    public static ClaimsPrincipal CreatePrincipal(int playerId, string sessionToken)
+    {
+        var claims = new[]
+        {
+            new Claim(PlayerIdClaimType, playerId.ToString()),
+            new Claim(SessionTokenClaimType, sessionToken)
+        };
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme));
+    }
+
+    public static AuthenticationProperties CreatePersistentProperties(TimeProvider timeProvider) => new()
+    {
+        IsPersistent = true,
+        AllowRefresh = true,
+        ExpiresUtc = timeProvider.GetUtcNow().Add(SessionDuration)
+    };
 }
 
 public static class PlayerSessionService
@@ -27,8 +58,11 @@ public static class PlayerSessionService
         var partita = partitaId.HasValue
             ? await db.Partite.FirstOrDefaultAsync(item => item.Id == partitaId.Value)
             : await db.Partite
-                .Where(item => item.Stato == Core.Enums.PartitaStato.Pronta || item.Stato == Core.Enums.PartitaStato.InCorso)
-                .OrderByDescending(item => item.DtCreazione)
+                .Where(item => item.Stato == Core.Enums.PartitaStato.Pronta
+                    || item.Stato == Core.Enums.PartitaStato.InCorso
+                    || item.Stato == Core.Enums.PartitaStato.Conclusa)
+                .OrderBy(item => item.Stato == Core.Enums.PartitaStato.Conclusa)
+                .ThenByDescending(item => item.DtCreazione)
                 .FirstOrDefaultAsync();
         if (partita is null)
             return PlayerSessionOperationResult.Error("Non è disponibile una partita per l'accesso.");

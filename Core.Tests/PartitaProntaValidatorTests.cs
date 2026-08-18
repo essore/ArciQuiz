@@ -66,6 +66,21 @@ public class PartitaProntaValidatorTests
         Assert.Empty(result.Errori);
     }
 
+    [Fact]
+    public void Validate_WhenTimerIsNotPositive_ReturnsItalianErrors()
+    {
+        var partita = CreatePartitaWithValidDomanda();
+        var manche = partita.Manches.Single();
+        manche.TempoRispostaSecondi = 0;
+        manche.Domande.Single().DurataSecondiOverride = -1;
+
+        var result = PartitaProntaValidator.Validate(partita);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errori, errore => errore.Contains("tempo di risposta maggiore di zero"));
+        Assert.Contains(result.Errori, errore => errore.Contains("durata personalizzata"));
+    }
+
     private static Partita CreatePartitaWithValidDomanda()
     {
         return new Partita

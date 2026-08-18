@@ -24,6 +24,11 @@ public static class PartitaProntaValidator
 
         foreach (var manche in partita.Manches)
         {
+            if (manche.TempoRispostaSecondi <= 0)
+            {
+                errori.Add($"La manche #{manche.Id} deve avere un tempo di risposta maggiore di zero.");
+            }
+
             var domandeGiocabili = manche.Domande
                 .Where(mancheDomanda => mancheDomanda.DomandaId.HasValue)
                 .ToList();
@@ -40,6 +45,11 @@ public static class PartitaProntaValidator
 
             foreach (var mancheDomanda in domandeGiocabili)
             {
+                if (mancheDomanda.DurataSecondiOverride <= 0)
+                {
+                    errori.Add($"La durata personalizzata della domanda alla posizione {mancheDomanda.Index} deve essere maggiore di zero.");
+                }
+
                 if (!IsDomandaValida(mancheDomanda.Domanda))
                 {
                     errori.Add($"La domanda alla posizione {mancheDomanda.Index} della manche #{manche.Id} non è valida.");

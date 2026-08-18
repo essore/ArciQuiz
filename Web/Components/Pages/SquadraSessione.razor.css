@@ -1,0 +1,137 @@
+.team-shell {
+    min-height: 100dvh;
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 1rem;
+    background: #f3f6fa;
+    color: #172033;
+}
+
+.team-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.team-header h1 {
+    margin: .15rem 0 0;
+    font-size: clamp(1.7rem, 8vw, 2.5rem);
+}
+
+.team-eyebrow {
+    color: #516078;
+    font-size: .85rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.connection-badge {
+    flex: 0 0 auto;
+    padding: .45rem .7rem;
+    border-radius: 999px;
+    background: #dff7e8;
+    color: #176236;
+    font-size: .8rem;
+    font-weight: 800;
+}
+
+.team-panel {
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    background: white;
+    box-shadow: 0 .5rem 1.5rem rgba(26, 42, 69, .08);
+}
+
+.team-panel h2 {
+    margin-top: .35rem;
+    font-size: clamp(1.6rem, 7vw, 2.25rem);
+    line-height: 1.15;
+}
+
+.question-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: #46546a;
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.answer-grid {
+    display: grid;
+    gap: .75rem;
+    margin-top: 1.25rem;
+}
+
+.answer-option {
+    display: grid;
+    grid-template-columns: 3rem 1fr;
+    align-items: center;
+    min-height: 4.5rem;
+    overflow: hidden;
+    border: 2px solid #d5dce7;
+    border-radius: 1rem;
+    background: #fbfcfe;
+    font-size: 1.05rem;
+}
+
+.answer-option strong {
+    display: grid;
+    align-self: stretch;
+    place-items: center;
+    background: #1457d9;
+    color: white;
+    font-size: 1.35rem;
+}
+
+.answer-option span {
+    padding: .8rem 1rem;
+}
+
+.team-hint, .team-footer {
+    margin-top: 1.25rem;
+    color: #68758a;
+    font-size: .9rem;
+}
+
+.warning {
+    background: #fff4dc;
+}
+
+.solution {
+    background: #eaf7ef;
+}
+
+.solution-answer {
+    font-size: 1.25rem;
+}
+
+.team-action {
+    display: block;
+    width: 100%;
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: .85rem;
+    background: #1457d9;
+    color: white;
+    font-weight: 800;
+    text-align: center;
+    text-decoration: none;
+}
+
+.team-footer {
+    text-align: center;
+}
+
+@media (min-width: 38rem) {
+    .team-shell {
+        padding: 2rem;
+    }
+
+    .answer-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}

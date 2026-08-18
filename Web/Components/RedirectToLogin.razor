@@ -3,6 +3,10 @@
 @code {
     protected override void OnInitialized()
     {
-        Navigation.NavigateTo("/login", forceLoad: true);
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var loginPath = relativePath.StartsWith("squadra", StringComparison.OrdinalIgnoreCase)
+            ? "/gioca"
+            : "/login";
+        Navigation.NavigateTo(loginPath, forceLoad: true);
     }
 }

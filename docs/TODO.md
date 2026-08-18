@@ -165,7 +165,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
 ### AQ-023 — Completare la lobby pubblica
 
-- Stato: `IN_PROGRESS`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-021
 - Obiettivo: mostrare sul proiettore QR e conteggio aggiornato delle squadre iscritte.
@@ -174,13 +174,43 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - conteggio aggiornato senza refresh manuale;
   - stato lobby persistente;
   - registrazione pubblica chiusa all'avvio della partita.
-- Validazione: test integrazione e smoke test da dispositivo nella LAN.
+- Validazione: test di generazione URL LAN, build e smoke test da dispositivo nella LAN completati (31 test xUnit superati, 0 errori di compilazione).
+
+### AQ-024 — Creare l'ingresso unico della squadra
+
+- Stato: `DONE`
+- Priorità: P0
+- Dipendenze: AQ-022, AQ-023, AQ-031
+- Obiettivo: consentire a una squadra di entrare, registrarsi o recuperare la sessione partendo sempre dallo stesso QR, senza digitare URL.
+- Criteri di accettazione:
+  - il proiettore mostra in ogni fase un QR stabile verso `/gioca`;
+  - `/gioca` instrada in base a stato partita e sessione valida;
+  - la registrazione crea immediatamente anche cookie e sessione del dispositivo;
+  - il cookie persiste per la durata della serata e resta subordinato al token esclusivo nel database;
+  - login, sessione sostituita e iscrizioni chiuse hanno percorsi mobile chiari;
+  - nessun link deve essere inserito manualmente dalla squadra.
+- Validazione: test di routing/sessione inclusi nella suite completa (63 test superati), build riuscita e smoke HTTP reale di registrazione, login e rientro da `/gioca` completato; verificata la separazione tra cookie squadra e admin, incluso il circuito Blazor.
+
+### AQ-025 — Creare la shell mobile-first della squadra
+
+- Stato: `DONE`
+- Priorità: P0
+- Dipendenze: AQ-024, AQ-031
+- Obiettivo: presentare alla squadra una singola UI mobile derivata dallo stato persistito, pronta per l'invio risposta di AQ-032.
+- Criteri di accettazione:
+  - stati distinti per attesa, domanda, tempo scaduto, soluzione, classifica, fine manche e fine partita;
+  - domanda e opzioni sono leggibili su smartphone, senza esporre la soluzione durante la domanda;
+  - nome squadra e stato connessione sono sempre riconoscibili;
+  - refresh e riapertura dal QR ricostruiscono la vista corrente;
+  - il view model inviato alla UI contiene soltanto i dati consentiti nella fase corrente;
+  - layout verificato a larghezza mobile.
+- Validazione: test del view model per tutte le fasi inclusi nella suite completa (63 test superati), build riuscita e smoke HTTP della shell mobile completato; viewport e regole responsive verificati nel markup/CSS.
 
 ## Milestone M3 — Motore della partita
 
 ### AQ-030 — Implementare la macchina a stati persistente
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-010, AQ-023
 - Obiettivo: rendere persistenti e validate le transizioni lobby, domanda, soluzione, classifica, fine manche e fine partita.
@@ -190,11 +220,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - ripresa dello stato dopo riavvio;
   - notifiche UI derivate dallo stato persistito;
   - test della matrice delle transizioni.
-- Validazione: test unitari/integrati, riavvio simulato e build.
+- Validazione: test unitari/integrati e riavvio simulato completati (36 test xUnit superati); build riuscita con 0 errori.
 
 ### AQ-031 — Implementare timer server-authoritative
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-030
 - Obiettivo: gestire durata standard di manche e override per domanda senza fidarsi dell'orologio client.
@@ -204,13 +234,13 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - risposte dopo scadenza rifiutate;
   - riavvio ricostruisce correttamente tempo residuo o chiude una domanda già scaduta;
   - test con clock controllabile.
-- Validazione: test timer/casi limite e build.
+- Validazione: test timer e casi limite completati (42 test xUnit superati); build riuscita con 0 errori.
 
 ### AQ-032 — Implementare il client squadra e l'invio risposta
 
-- Stato: `PLANNED`
+- Stato: `READY`
 - Priorità: P0
-- Dipendenze: AQ-022, AQ-031
+- Dipendenze: AQ-025
 - Obiettivo: mostrare domanda e A/B/C/D e accettare una sola risposta immutabile.
 - Criteri di accettazione:
   - soluzione non presente nel payload prima della chiusura;

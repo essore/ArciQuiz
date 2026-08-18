@@ -11,7 +11,9 @@ namespace Core.Enums
         ShowingQuestion = 2,
         ShowingAnswers = 3,
         Leaderboard = 4,
-        Closed = 5
+        Closed = 5,
+        Lobby = 6,
+        RoundEnded = 7
     }
 
     public sealed record GameState(
