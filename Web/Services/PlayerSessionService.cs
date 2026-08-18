@@ -1,0 +1,73 @@
+using Core.Entities;
+using Infrasctructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace Web.Services;
+
+public static class PlayerSessionAuthentication
+{
+    public const string Scheme = "ArciQuiz.Squadra";
+    public const string PlayerIdClaimType = "arciquiz:player-id";
+    public const string SessionTokenClaimType = "arciquiz:session-token";
+}
+
+public static class PlayerSessionService
+{
+    // Crea una sola sessione persistita per squadra, sostituendo quella del dispositivo precedente.
+    public static async Task<PlayerSessionOperationResult> AccediAsync(
+        ArciQuizDbContext db,
+        int? partitaId,
+        string? nomeSquadra,
+        string? password)
+    {
+        var nome = nomeSquadra?.Trim();
+        if (string.IsNullOrWhiteSpace(nome) || string.IsNullOrWhiteSpace(password))
+            return PlayerSessionOperationResult.Error("Inserisci nome squadra e password.");
+
+        var partita = partitaId.HasValue
+            ? await db.Partite.FirstOrDefaultAsync(item => item.Id == partitaId.Value)
+            : await db.Partite
+                .Where(item => item.Stato == Core.Enums.PartitaStato.Pronta || item.Stato == Core.Enums.PartitaStato.InCorso)
+                .OrderByDescending(item => item.DtCreazione)
+                .FirstOrDefaultAsync();
+        if (partita is null)
+            return PlayerSessionOperationResult.Error("Non è disponibile una partita per l'accesso.");
+
+        var squadra = await db.Players
+            .Include(item => item.IscrizioniPartite)
+            .FirstOrDefaultAsync(item => item.PartitaId == partita.Id && item.NomeSquadra == nome);
+        if (squadra is null || squadra.Password != password)
+            return PlayerSessionOperationResult.Error("Nome squadra o password non validi.");
+
+        var sessione = squadra.IscrizioniPartite.SingleOrDefault(item => item.PartitaId == partita.Id);
+        if (sessione is null)
+            return PlayerSessionOperationResult.Error("La squadra non è associata alla partita selezionata.");
+
+        var token = Guid.NewGuid().ToString("N");
+        var accessoUtc = DateTime.UtcNow;
+        squadra.SessionToken = token;
+        squadra.DtUltimoAccessoUtc = accessoUtc;
+        sessione.SessionToken = token;
+        sessione.DtUltimoAccessoUtc = accessoUtc;
+        await db.SaveChangesAsync();
+
+        return PlayerSessionOperationResult.Success(squadra.Id, token, "Accesso effettuato.");
+    }
+
+    public static async Task<bool> SessioneValidaAsync(ArciQuizDbContext db, int squadraId, string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return false;
+
+        return await db.PlayersPartite.AnyAsync(item =>
+            item.PlayerId == squadraId &&
+            item.SessionToken == token &&
+            item.Player != null &&
+            item.Player.SessionToken == token);
+    }
+}
+
+public sealed record PlayerSessionOperationResult(bool IsSuccess, int? SquadraId, string? SessionToken, string Messaggio)
+{
+    public static PlayerSessionOperationResult Success(int squadraId, string sessionToken, string messaggio) => new(true, squadraId, sessionToken, messaggio);
+    public static PlayerSessionOperationResult Error(string messaggio) => new(false, null, null, messaggio);
+}

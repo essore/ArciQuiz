@@ -152,7 +152,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
 ### AQ-022 — Rendere esclusiva la sessione del dispositivo squadra
 
-- Stato: `READY`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-021
 - Obiettivo: fare in modo che l'ultimo login valido sia l'unico autorizzato a rispondere.
@@ -165,7 +165,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
 ### AQ-023 — Completare la lobby pubblica
 
-- Stato: `PLANNED`
+- Stato: `IN_PROGRESS`
 - Priorità: P1
 - Dipendenze: AQ-021
 - Obiettivo: mostrare sul proiettore QR e conteggio aggiornato delle squadre iscritte.

@@ -47,12 +47,21 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
+    })
+    .AddCookie(PlayerSessionAuthentication.Scheme, options =>
+    {
+        options.LoginPath = "/squadra/accesso";
+        options.Cookie.Name = "ArciQuiz.Squadra";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.SlidingExpiration = true;
     });
 builder.Services.AddAuthorization();
 
 // Add services to the container.
 builder.Services.AddSingleton<IGameStateService, GameStateService>();
 builder.Services.AddSingleton<ILanAddressService, LanAddressService>();
+builder.Services.AddSingleton<ILanUrlService, LanUrlService>();
 builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
 
 
@@ -159,6 +168,43 @@ app.MapPost("/logout", async (HttpContext context, IAntiforgery antiforgery) =>
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Redirect("/login");
 });
+app.MapGet("/squadra/accesso", (HttpContext context, IAntiforgery antiforgery) =>
+{
+    var token = antiforgery.GetAndStoreTokens(context).RequestToken;
+    return Results.Content(PlayerLoginPage(token, null), "text/html; charset=utf-8");
+});
+app.MapPost("/squadra/accesso", async (HttpContext context, IAntiforgery antiforgery, IDbContextFactory<ArciQuizDbContext> dbFactory) =>
+{
+    await antiforgery.ValidateRequestAsync(context);
+    var form = await context.Request.ReadFormAsync();
+    await using var db = await dbFactory.CreateDbContextAsync();
+    var result = await PlayerSessionService.AccediAsync(db, null, form["nomeSquadra"], form["password"]);
+    if (!result.IsSuccess)
+    {
+        var token = antiforgery.GetAndStoreTokens(context).RequestToken;
+        return Results.Content(PlayerLoginPage(token, result.Messaggio), "text/html; charset=utf-8", statusCode: StatusCodes.Status401Unauthorized);
+    }
+
+    var claims = new[]
+    {
+        new Claim(PlayerSessionAuthentication.PlayerIdClaimType, result.SquadraId!.Value.ToString()),
+        new Claim(PlayerSessionAuthentication.SessionTokenClaimType, result.SessionToken!)
+    };
+    var identity = new ClaimsIdentity(claims, PlayerSessionAuthentication.Scheme);
+    await context.SignInAsync(PlayerSessionAuthentication.Scheme, new ClaimsPrincipal(identity));
+    return Results.Redirect("/squadra");
+});
+app.MapGet("/squadra/esci", (HttpContext context, IAntiforgery antiforgery) =>
+{
+    var token = antiforgery.GetAndStoreTokens(context).RequestToken;
+    return Results.Content(PlayerLogoutPage(token), "text/html; charset=utf-8");
+});
+app.MapPost("/squadra/esci", async (HttpContext context, IAntiforgery antiforgery) =>
+{
+    await antiforgery.ValidateRequestAsync(context);
+    await context.SignOutAsync(PlayerSessionAuthentication.Scheme);
+    return Results.Redirect("/squadra/accesso");
+});
 app.MapGet("/api/domande/export", async (IDbContextFactory<ArciQuizDbContext> dbFactory) =>
 {
     await using var db = await dbFactory.CreateDbContextAsync();
@@ -193,6 +239,26 @@ static string LoginPage(string? antiforgeryToken, string? error)
 static string LogoutPage(string? antiforgeryToken) => $"""
     <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Esci</title></head>
     <body><main><h1>Esci dall'area amministrativa</h1><form method="post" action="/logout">
+    <input type="hidden" name="__RequestVerificationToken" value="{System.Net.WebUtility.HtmlEncode(antiforgeryToken)}">
+    <button type="submit">Esci</button></form></main></body></html>
+    """;
+
+static string PlayerLoginPage(string? antiforgeryToken, string? error)
+{
+    var errorMessage = string.IsNullOrWhiteSpace(error) ? string.Empty : $"<p role=\"alert\">{System.Net.WebUtility.HtmlEncode(error)}</p>";
+    return $"""
+        <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso squadra</title></head>
+        <body><main><h1>Accesso squadra</h1>{errorMessage}
+        <form method="post" action="/squadra/accesso"><input type="hidden" name="__RequestVerificationToken" value="{System.Net.WebUtility.HtmlEncode(antiforgeryToken)}">
+        <label>Nome squadra <input name="nomeSquadra" autocomplete="username" required></label><br>
+        <label>Password <input type="password" name="password" autocomplete="current-password" required></label><br>
+        <button type="submit">Accedi</button></form></main></body></html>
+        """;
+}
+
+static string PlayerLogoutPage(string? antiforgeryToken) => $"""
+    <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Esci dalla squadra</title></head>
+    <body><main><h1>Esci dalla squadra</h1><form method="post" action="/squadra/esci">
     <input type="hidden" name="__RequestVerificationToken" value="{System.Net.WebUtility.HtmlEncode(antiforgeryToken)}">
     <button type="submit">Esci</button></form></main></body></html>
     """;

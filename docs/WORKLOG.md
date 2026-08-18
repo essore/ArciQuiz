@@ -13,6 +13,22 @@ Ogni voce deve indicare:
 
 ---
 
+## 2026-08-18 - Chiusura AQ-022 Rendere esclusiva la sessione del dispositivo squadra
+
+- Task: AQ-022.
+- Risultato:
+  - aggiunto accesso squadra con cookie dedicato e token persistito sia sulla squadra sia sulla sua iscrizione alla partita;
+  - un nuovo accesso con credenziali valide sostituisce il token precedente; la pagina squadra informa il dispositivo sostituito e non lo considera più autorizzato;
+  - il controllo della sessione usa il database, quindi rimane valido dopo un refresh e dopo la ricreazione del `DbContext`/riavvio dell'app;
+  - aggiunti tre test per due sessioni concorrenti, refresh e recupero persistito;
+  - `AQ-022` dichiarato `DONE` e `AQ-023` promosso a `READY`, senza avviarlo.
+- File principali: `Web/Services/PlayerSessionService.cs`, `Web/Components/Pages/SquadraSessione.razor`, `Web/Program.cs`, `Core.Tests/SquadreServiceTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter "FullyQualifiedName~SquadreServiceTests"`: 7 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 29 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 3 avvisi noti.
+- Rischi residui: l'invio delle risposte sarà introdotto in AQ-032; dovrà usare `SessioneValidaAsync` prima di registrare una risposta.
+
 ## 2026-08-18 - Chiusura AQ-021 Registrare e amministrare le squadre
 
 - Task: AQ-021.

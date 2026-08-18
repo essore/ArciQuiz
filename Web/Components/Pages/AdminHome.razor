@@ -52,10 +52,9 @@ else
 
             @if (_partitaAttiva.Stato == PartitaStato.Pronta)
             {
-                <LanQr Title="QR iscrizione squadre"
-                       RelativePath="/registrazione"
-                       Port="5000"
-                       MaxWidthPx="240" />
+                <a class="btn btn-outline-primary mt-3" href="@($"/lobby/{_partitaAttiva.Id}")" target="_blank">
+                    Apri lobby sul proiettore
+                </a>
             }
         </div>
     </div>

@@ -1,5 +1,5 @@
 ﻿@using Web.Services
-@inject ILanAddressService Lan
+@inject ILanUrlService LanUrl
 @inject IQrCodeService Qr
 
 @if (!string.IsNullOrWhiteSpace(_url) && !string.IsNullOrWhiteSpace(_qrDataUrl))
@@ -29,8 +29,6 @@ else
 
 @code {
     [Parameter, EditorRequired] public string RelativePath { get; set; } = default!; // es: "/proiettore/2"
-    [Parameter] public int? Port { get; set; } = 5000;
-
     [Parameter] public string Title { get; set; } = "QR";
     [Parameter] public bool ShowLink { get; set; } = true;
 
@@ -49,18 +47,13 @@ else
 
     private void Build()
     {
-        var ip = Lan.GetLanIPv4();
-        if (string.IsNullOrWhiteSpace(ip))
+        _url = LanUrl.BuildUrl(RelativePath);
+        if (string.IsNullOrWhiteSpace(_url))
         {
-            _url = null;
             _qrDataUrl = null;
             return;
         }
 
-        var port = Port ?? 5000;
-
-        var rel = RelativePath.StartsWith("/") ? RelativePath : "/" + RelativePath;
-        _url = $"http://{ip}:{port}{rel}";
         _qrDataUrl = Qr.ToDataUrlPng(_url, pixelsPerModule: PixelsPerModule);
     }
 }

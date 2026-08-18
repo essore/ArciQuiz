@@ -1,0 +1,82 @@
+@page "/lobby/{PartitaId:int}"
+@layout MinimalLayout
+@rendermode InteractiveServer
+@implements IDisposable
+
+@using Core.Enums
+@using Infrasctructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
+
+<PageTitle>Lobby partita</PageTitle>
+
+@if (_isLoading)
+{
+    <h1>Caricamento lobby...</h1>
+}
+else if (_lobby is null)
+{
+    <h1>Lobby non disponibile</h1>
+}
+else if (_lobby.Stato != PartitaStato.Pronta)
+{
+    <h1>Le iscrizioni pubbliche sono chiuse.</h1>
+}
+else
+{
+    <main class="container text-center py-5">
+        <h1 class="display-3">@_lobby.Titolo</h1>
+        <p class="fs-2 mt-4">Scansiona il QR per iscrivere la tua squadra</p>
+        <LanQr Title="Iscrizione squadre" RelativePath="/registrazione" MaxWidthPx="420" ShowLink="false" CssClass="d-inline-block" />
+        <p class="display-5 mt-4">Squadre iscritte: @_lobby.NumeroSquadre</p>
+    </main>
+}
+
+@code {
+    [Parameter] public int PartitaId { get; set; }
+
+    private CancellationTokenSource? _cancellationTokenSource;
+    private LobbyViewModel? _lobby;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cancellationTokenSource = new CancellationTokenSource();
+        await CaricaLobbyAsync();
+        _isLoading = false;
+        _ = AggiornaPeriodicamenteAsync(_cancellationTokenSource.Token);
+    }
+
+    private async Task AggiornaPeriodicamenteAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await CaricaLobbyAsync();
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task CaricaLobbyAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _lobby = await db.Partite
+            .AsNoTracking()
+            .Where(partita => partita.Id == PartitaId)
+            .Select(partita => new LobbyViewModel(partita.Titolo, partita.Stato, partita.Players.Count))
+            .FirstOrDefaultAsync();
+    }
+
+    public void Dispose() => _cancellationTokenSource?.Cancel();
+
+    private sealed record LobbyViewModel(string Titolo, PartitaStato Stato, int NumeroSquadre);
+}

@@ -2,7 +2,7 @@
 
 Ultima verifica: **2026-08-18**  
 Commit ispezionato prima della documentazione: `4f9df12` (`master`)  
-Stadio: **prototipo compilabile con baseline di test (26 casi), migrazioni EF Core, modello persistente della prima release, catalogo CSV, dashboard admin protetta e registrazione squadre (AQ-021 completato)**
+Stadio: **prototipo compilabile con baseline di test (29 casi), migrazioni EF Core, modello persistente della prima release, catalogo CSV, dashboard admin protetta, registrazione squadre e sessione esclusiva del dispositivo squadra (AQ-022 completato)**
 
 ## Baseline verificata
 
@@ -13,9 +13,9 @@ dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 ```
 
-Esito: test riusciti (26 casi su migrazioni, vincoli univoci squadra/risposta, persistenza estesa, validazione della partita pronta, CSV domande, perimetro admin e registrazione squadre) e build riuscita, 0 errori e 3 avvisi noti.
+Esito: test riusciti (29 casi su migrazioni, vincoli univoci squadra/risposta, persistenza estesa, validazione della partita pronta, CSV domande, perimetro admin, registrazione e sessione esclusiva delle squadre) e build riuscita, 0 errori e 3 avvisi noti.
 
-Completato `AQ-021`: registrazione pubblica disponibile nella lobby (`Pronta`), amministrazione squadre e inserimento ritardato admin completati. `AQ-022` è ora il task autorizzato in coda (`READY`).
+Completato `AQ-022`: il login squadra crea una sessione persistita e sostituisce il dispositivo precedente, che riceve un messaggio esplicito al controllo successivo. `AQ-023` è ora il task autorizzato in coda (`READY`).
 
 ## Funzioni presenti
 
@@ -28,6 +28,7 @@ Completato `AQ-021`: registrazione pubblica disponibile nella lobby (`Pronta`), 
 - import/export CSV del catalogo con validazione atomica e segnalazione degli errori per riga;
 - autenticazione amministrativa locale per dashboard, regia e operazioni amministrative;
 - registrazione pubblica delle squadre in lobby e gestione admin con recupero/modifica password;
+- login squadra con cookie dedicato e sessione esclusiva persistita;
 - creazione partita e manche;
 - configurazione di manche e associazione/ordine delle domande;
 - validazione server-side della transizione della partita a `Pronta`, con messaggi italiani;
@@ -50,7 +51,6 @@ Completato `AQ-021`: registrazione pubblica disponibile nella lobby (`Pronta`), 
 
 ## Funzioni mancanti per la prima release
 
-- sessione esclusiva dell'ultimo telefono autenticato;
 - client smartphone per leggere e rispondere;
 - timer server-authoritative con override per domanda;
 - risposta immutabile e idempotente;

@@ -1,0 +1,45 @@
+@page "/squadra"
+@attribute [Authorize(AuthenticationSchemes = PlayerSessionAuthentication.Scheme)]
+@rendermode InteractiveServer
+
+@using Infrasctructure.Data
+@using Microsoft.EntityFrameworkCore
+@using Web.Services
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Squadra</PageTitle>
+
+<h1>Area squadra</h1>
+
+@if (_sessioneSostituita)
+{
+    <div class="alert alert-warning" role="alert">
+        Questa sessione è stata sostituita da un accesso più recente su un altro dispositivo. Accedi di nuovo per continuare.
+    </div>
+    <a class="btn btn-primary" href="/squadra/accesso">Accedi</a>
+}
+else
+{
+    <div class="alert alert-success">Dispositivo collegato. Attendi l'avvio della prossima domanda.</div>
+    <a class="btn btn-outline-secondary" href="/squadra/esci">Esci</a>
+}
+
+@code {
+    private bool _sessioneSostituita;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var stato = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var squadraIdValue = stato.User.FindFirst(PlayerSessionAuthentication.PlayerIdClaimType)?.Value;
+        var token = stato.User.FindFirst(PlayerSessionAuthentication.SessionTokenClaimType)?.Value;
+        if (!int.TryParse(squadraIdValue, out var squadraId))
+        {
+            _sessioneSostituita = true;
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _sessioneSostituita = !await PlayerSessionService.SessioneValidaAsync(db, squadraId, token);
+    }
+}

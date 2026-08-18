@@ -56,6 +56,47 @@ public class SquadreServiceTests
         Assert.Single(test.Database.Players);
     }
 
+    [Fact]
+    public async Task AccediAsync_NuovoDispositivo_InvalidaLaSessionePrecedente()
+    {
+        await using var test = await TestDatabase.CreateAsync(PartitaStato.Pronta);
+        await SquadreService.RegistraAsync(test.Database, null, "Le Aquile", "segreta", isAdmin: false);
+        var partitaId = (await test.Database.Partite.SingleAsync()).Id;
+
+        var primoAccesso = await PlayerSessionService.AccediAsync(test.Database, partitaId, "Le Aquile", "segreta");
+        var secondoAccesso = await PlayerSessionService.AccediAsync(test.Database, partitaId, "Le Aquile", "segreta");
+
+        Assert.True(primoAccesso.IsSuccess);
+        Assert.True(secondoAccesso.IsSuccess);
+        Assert.False(await PlayerSessionService.SessioneValidaAsync(test.Database, primoAccesso.SquadraId!.Value, primoAccesso.SessionToken));
+        Assert.True(await PlayerSessionService.SessioneValidaAsync(test.Database, secondoAccesso.SquadraId!.Value, secondoAccesso.SessionToken));
+    }
+
+    [Fact]
+    public async Task AccediAsync_RefreshDelDispositivoAttivo_MantieneValidaLaSessione()
+    {
+        await using var test = await TestDatabase.CreateAsync(PartitaStato.Pronta);
+        await SquadreService.RegistraAsync(test.Database, null, "Le Aquile", "segreta", isAdmin: false);
+        var partitaId = (await test.Database.Partite.SingleAsync()).Id;
+
+        var accesso = await PlayerSessionService.AccediAsync(test.Database, partitaId, "Le Aquile", "segreta");
+        test.Database.ChangeTracker.Clear();
+
+        Assert.True(await PlayerSessionService.SessioneValidaAsync(test.Database, accesso.SquadraId!.Value, accesso.SessionToken));
+    }
+
+    [Fact]
+    public async Task AccediAsync_DopoNuovoDbContext_RecuperaLaSessionePersistita()
+    {
+        await using var test = await TestDatabase.CreateAsync(PartitaStato.Pronta);
+        await SquadreService.RegistraAsync(test.Database, null, "Le Aquile", "segreta", isAdmin: false);
+        var partitaId = (await test.Database.Partite.SingleAsync()).Id;
+        var accesso = await PlayerSessionService.AccediAsync(test.Database, partitaId, "Le Aquile", "segreta");
+
+        await using var riaperto = new ArciQuizDbContext(test.Options);
+        Assert.True(await PlayerSessionService.SessioneValidaAsync(riaperto, accesso.SquadraId!.Value, accesso.SessionToken));
+    }
+
     private sealed class TestDatabase : IAsyncDisposable
     {
         private readonly string _path;
@@ -67,6 +108,7 @@ public class SquadreServiceTests
         }
 
         public ArciQuizDbContext Database { get; }
+        public DbContextOptions<ArciQuizDbContext> Options { get; private init; } = null!;
 
         public static async Task<TestDatabase> CreateAsync(PartitaStato stato)
         {
@@ -76,7 +118,7 @@ public class SquadreServiceTests
             await database.Database.MigrateAsync();
             database.Partite.Add(new Partita { Titolo = "Partita test", Stato = stato });
             await database.SaveChangesAsync();
-            return new TestDatabase(path, database);
+            return new TestDatabase(path, database) { Options = options };
         }
 
         public async ValueTask DisposeAsync()
