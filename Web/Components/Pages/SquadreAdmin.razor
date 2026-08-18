@@ -1,0 +1,107 @@
+@page "/partita/{PartitaId:int}/squadre"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using Core.Entities
+@using Infrasctructure.Data
+@using Microsoft.EntityFrameworkCore
+@using Web.Services
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>Gestione squadre</PageTitle>
+
+<h1>Gestione squadre</h1>
+<button class="btn btn-secondary mb-3" @onclick="TornaAllaPartita">&larr; Torna alla partita</button>
+
+<h2>Aggiungi squadra</h2>
+<div class="row">
+    <div class="col-md-5"><input class="form-control" placeholder="Nome squadra" @bind="_nuovoNome" /></div>
+    <div class="col-md-5"><input class="form-control" placeholder="Password" @bind="_nuovaPassword" /></div>
+    <div class="col-md-2"><button class="btn btn-primary" @onclick="AggiungiAsync">Aggiungi</button></div>
+</div>
+<p class="text-muted mt-2">L'amministratore può aggiungere squadre anche dopo la chiusura delle iscrizioni pubbliche.</p>
+
+@if (!string.IsNullOrWhiteSpace(_messaggio))
+{
+    <div class="alert @(_isSuccess ? "alert-success" : "alert-danger") mt-3">@_messaggio</div>
+}
+
+@if (_squadre is null)
+{
+    <p>Caricamento...</p>
+}
+else if (_squadre.Count == 0)
+{
+    <p>Nessuna squadra iscritta.</p>
+}
+else
+{
+    <table class="table align-middle">
+        <thead><tr><th>Nome</th><th>Password</th><th>Iscritta il</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var squadra in _squadre)
+            {
+                <tr>
+                    <td><input class="form-control" @bind="squadra.NomeSquadra" /></td>
+                    <td><input class="form-control" @bind="squadra.Password" /></td>
+                    <td>@squadra.DtIscrizioneUtc.ToLocalTime().ToString("g")</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="@(() => SalvaAsync(squadra))">Salva</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => EliminaAsync(squadra.Id))">Elimina</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter] public int PartitaId { get; set; }
+
+    private List<Player>? _squadre;
+    private string _nuovoNome = string.Empty;
+    private string _nuovaPassword = string.Empty;
+    private string? _messaggio;
+    private bool _isSuccess;
+
+    protected override async Task OnParametersSetAsync() => await CaricaAsync();
+
+    private async Task CaricaAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _squadre = await db.Players.AsNoTracking()
+            .Where(squadra => squadra.PartitaId == PartitaId)
+            .OrderBy(squadra => squadra.NomeSquadra)
+            .ToListAsync();
+    }
+
+    private async Task AggiungiAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var result = await SquadreService.RegistraAsync(db, PartitaId, _nuovoNome, _nuovaPassword, isAdmin: true);
+        await GestisciEsitoAsync(result);
+        if (result.IsSuccess) _nuovoNome = _nuovaPassword = string.Empty;
+    }
+
+    private async Task SalvaAsync(Player squadra)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await GestisciEsitoAsync(await SquadreService.AggiornaAsync(db, squadra.Id, squadra.NomeSquadra, squadra.Password));
+    }
+
+    private async Task EliminaAsync(int squadraId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await GestisciEsitoAsync(await SquadreService.EliminaAsync(db, squadraId));
+    }
+
+    private async Task GestisciEsitoAsync(SquadraOperationResult result)
+    {
+        _isSuccess = result.IsSuccess;
+        _messaggio = result.Messaggio;
+        await CaricaAsync();
+    }
+
+    private void TornaAllaPartita() => Navigation.NavigateTo($"/partita/{PartitaId}");
+}

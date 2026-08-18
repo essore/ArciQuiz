@@ -1,10 +1,12 @@
 ﻿@page "/partita/{Id:int}"
+@attribute [Authorize]
 
 @using Core.Entities
 @using Core.Enums
+@using Core.Services
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
-@inject ArciQuizDbContext Db
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
 @inject NavigationManager Nav
 
 <PageTitle>Configura Partita</PageTitle>
@@ -154,6 +156,10 @@ else
 
     <h2>Squadre iscritte</h2>
 
+    <button class="btn btn-outline-primary mb-3" @onclick="VaiGestioneSquadre">
+        Gestisci squadre
+    </button>
+
     @if (!_players.Any())
     {
         <p>Nessuna squadra iscritta (per ora).</p>
@@ -205,7 +211,10 @@ else
         _messaggio = null;
         _errore = null;
 
-        _partita = await Db.Partite
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        _partita = await db.Partite
+            .AsNoTracking()
             .Include(p => p.Manches)
             .Include(p => p.PlayersPartita)
                 .ThenInclude(pp => pp.Player)
@@ -223,9 +232,36 @@ else
     {
         if (_partita is null) return;
 
+        _messaggio = null;
+        _errore = null;
+
         try
         {
-            await Db.SaveChangesAsync();
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var partita = await db.Partite
+                .Include(item => item.Manches)
+                    .ThenInclude(manche => manche.Domande)
+                        .ThenInclude(mancheDomanda => mancheDomanda.Domanda)
+                .FirstOrDefaultAsync(item => item.Id == _partita.Id);
+            if (partita is null)
+            {
+                _errore = "La partita non è più disponibile.";
+                return;
+            }
+
+            if (_partita.Stato == PartitaStato.Pronta && partita.Stato != PartitaStato.Pronta)
+            {
+                var validationResult = PartitaProntaValidator.Validate(partita);
+                if (!validationResult.IsValid)
+                {
+                    _errore = string.Join(" ", validationResult.Errori);
+                    return;
+                }
+            }
+
+            partita.Titolo = _partita.Titolo;
+            partita.Stato = _partita.Stato;
+            await db.SaveChangesAsync();
             _messaggio = "Dettagli partita salvati.";
         }
         catch (Exception ex)
@@ -240,7 +276,21 @@ else
 
         try
         {
-            await Db.SaveChangesAsync();
+            await using var db = await DbFactory.CreateDbContextAsync();
+            foreach (var mancheModificata in _partita.Manches)
+            {
+                var manche = await db.Manches.FirstOrDefaultAsync(item => item.Id == mancheModificata.Id);
+                if (manche is null)
+                    continue;
+
+                manche.Stato = mancheModificata.Stato;
+                manche.TempoRispostaSecondi = mancheModificata.TempoRispostaSecondi;
+                manche.PuntiBase = mancheModificata.PuntiBase;
+                manche.PenalitaErrore = mancheModificata.PenalitaErrore;
+                manche.MaxAstensioni = mancheModificata.MaxAstensioni;
+            }
+
+            await db.SaveChangesAsync();
             _messaggio = "Modifiche alle manches salvate.";
         }
         catch (Exception ex)
@@ -262,8 +312,9 @@ else
             MaxAstensioni = 3
         };
 
-        Db.Manches.Add(nuova);
-        await Db.SaveChangesAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Manches.Add(nuova);
+        await db.SaveChangesAsync();
 
         await OnParametersSetAsync();
         StateHasChanged();
@@ -273,8 +324,13 @@ else
     {
         if (_partita is null) return;
 
-        Db.Manches.Remove(manche);
-        await Db.SaveChangesAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var mancheDaRimuovere = await db.Manches.FirstOrDefaultAsync(item => item.Id == manche.Id);
+        if (mancheDaRimuovere is null)
+            return;
+
+        db.Manches.Remove(mancheDaRimuovere);
+        await db.SaveChangesAsync();
 
         await OnParametersSetAsync();
         StateHasChanged();
@@ -287,6 +343,11 @@ else
     private void TornaAllAdmin()
     {
         Nav.NavigateTo("/admin");
+    }
+
+    private void VaiGestioneSquadre()
+    {
+        Nav.NavigateTo($"/partita/{Id}/squadre");
     }
 
 }

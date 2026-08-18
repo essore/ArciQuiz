@@ -65,7 +65,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
 ### AQ-005 — Rendere sicuro il ciclo di vita del DbContext
 
-- Stato: `READY`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-004
 - Obiettivo: evitare `DbContext` di lunga durata nei componenti Blazor, seguendo il pattern factory già presente nel proiettore.
@@ -74,13 +74,13 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - nessun accesso concorrente allo stesso context;
   - comportamento CRUD esistente preservato;
   - test pertinenti e build verdi.
-- Validazione: test, build e smoke test delle pagine CRUD.
+- Validazione: test, build e smoke test delle pagine CRUD completati con successo (rimozione EventLog Windows e verifica esecuzione runtime confermata).
 
 ## Milestone M1 — Preparazione della partita
 
 ### AQ-010 — Completare il modello persistente della prima release
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-005
 - Obiettivo: estendere lo schema con le sole informazioni necessarie a sessioni squadra, timer, regole di manche, override domanda, esiti, annullamento e recupero.
@@ -90,11 +90,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - vincolo una risposta per squadra e occorrenza domanda;
   - migrazione con test di applicazione su database temporaneo;
   - nessuna logica di UI inclusa nel task.
-- Validazione: test di schema/migrazione e build.
+- Validazione: test di schema/migrazione e build completati con successo (6 test xUnit superati, 0 errori di compilazione).
 
 ### AQ-011 — Validare la transizione della partita a Pronta
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-010
 - Obiettivo: impedire che una partita incompleta venga dichiarata pronta.
@@ -104,11 +104,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - ordine domande non ambiguo;
   - errori mostrati in italiano;
   - regole testate senza dipendere dalla UI.
-- Validazione: test unitari, build e smoke test configurazione.
+- Validazione: test unitari, build e smoke test configurazione completati (11 test xUnit superati, 0 errori di compilazione).
 
 ### AQ-012 — Importare ed esportare domande in CSV
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-011
 - Obiettivo: offrire round-trip CSV del catalogo con categorie e difficoltà controllate.
@@ -118,13 +118,13 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - righe errate segnalate con numero e motivo;
   - nessuna importazione parziale silenziosa;
   - export reimportabile senza perdita dei campi supportati.
-- Validazione: test round-trip, file con errori, build e smoke test UI.
+- Validazione: test round-trip e file con errori, build e smoke test UI completati (13 test xUnit superati, 0 errori di compilazione).
 
 ## Milestone M2 — Lobby e squadre
 
 ### AQ-020 — Proteggere la dashboard admin
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-010
 - Obiettivo: aggiungere autenticazione locale di base alle route e operazioni amministrative.
@@ -134,11 +134,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - proiettore e registrazione rimangono pubblici nella LAN;
   - logout disponibile;
   - test di autorizzazione.
-- Validazione: test di autenticazione/autorizzazione, build e smoke test.
+- Validazione: test di autorizzazione, build e smoke test completati (22 test xUnit superati, 0 errori di compilazione; redirect anonimo, login, logout e proiettore pubblico verificati manualmente dal proprietario).
 
 ### AQ-021 — Registrare e amministrare le squadre
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-020
 - Obiettivo: creare iscrizione via QR/form e CRUD admin per la partita attiva.
@@ -148,11 +148,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - registrazione pubblica disponibile solo in lobby;
   - admin può aggiungere una squadra in ritardo;
   - validazioni e messaggi italiani.
-- Validazione: test integrazione dei casi nominali/duplicati e smoke test mobile.
+- Validazione: test di registrazione nominale, duplicato e inserimento admin ritardato, build e smoke test mobile completati (26 test xUnit superati, 0 errori di compilazione).
 
 ### AQ-022 — Rendere esclusiva la sessione del dispositivo squadra
 
-- Stato: `PLANNED`
+- Stato: `READY`
 - Priorità: P0
 - Dipendenze: AQ-021
 - Obiettivo: fare in modo che l'ultimo login valido sia l'unico autorizzato a rispondere.

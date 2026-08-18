@@ -3,6 +3,7 @@ using System;
 using Infrasctructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrasctructure.Migrations
 {
     [DbContext(typeof(ArciQuizDbContext))]
-    partial class ArciQuizDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260818082101_AddPersistenceModelExtensions")]
+    partial class AddPersistenceModelExtensions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");

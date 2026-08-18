@@ -57,6 +57,13 @@ nuova versione, conservarne una copia con gli eventuali file `-wal` e `-shm`.
 Il nuovo database viene creato separatamente nella cartella dati stabile; la
 reimportazione dei dati del prototipo non è ancora supportata.
 
+## Credenziale amministrativa locale
+
+Prima di avviare l'applicazione, copiare `Web/appsettings.Local.example.json` in
+`Web/appsettings.Local.json` e impostare utente e password dell'amministratore.
+Il file locale è ignorato da Git. In alternativa, impostare le variabili
+d'ambiente `Admin__Username` e `Admin__Password`.
+
 ## Modalità di lavoro
 
 Il proprietario avvia gli agenti quando dispone del budget di token. Ogni agente autonomo completa un solo task `READY`, verifica il risultato, aggiorna la documentazione operativa e si ferma. Il protocollo completo è in [AGENTS.md](AGENTS.md).

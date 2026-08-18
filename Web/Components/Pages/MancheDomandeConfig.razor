@@ -1,9 +1,10 @@
 ﻿@page "/manche/{Id:int}/domande"
+@attribute [Authorize]
 
 @using Core.Entities
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
-@inject ArciQuizDbContext Db
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
 @inject NavigationManager Nav
 
 <PageTitle>Domande Manche</PageTitle>
@@ -174,7 +175,10 @@ else
         _messaggio = null;
         _errore = null;
 
-        _manche = await Db.Manches
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        _manche = await db.Manches
+            .AsNoTracking()
             .Include(m => m.Partita)
             .Include(m => m.Domande)
                 .ThenInclude(md => md.Domanda)
@@ -190,7 +194,9 @@ else
                 .Select(md => md.DomandaId!.Value)
                 .ToHashSet();
 
-            _tutteDomande = await Db.Domande.ToListAsync();
+            _tutteDomande = await db.Domande
+                .AsNoTracking()
+                .ToListAsync();
             _domandeDisponibiliFiltrate = _tutteDomande
                 .Where(d => !idsInManche.Contains(d.Id))
                 .ToList();
@@ -218,8 +224,9 @@ else
             ModificatorePunti = 1
         };
 
-        Db.ManchesDomande.Add(md);
-        await Db.SaveChangesAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.ManchesDomande.Add(md);
+        await db.SaveChangesAsync();
 
         await OnParametersSetAsync();
         StateHasChanged();
@@ -227,8 +234,13 @@ else
 
     private async Task RimuoviDaManche(MancheDomanda md)
     {
-        Db.ManchesDomande.Remove(md);
-        await Db.SaveChangesAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var mancheDomanda = await db.ManchesDomande.FirstOrDefaultAsync(item => item.Id == md.Id);
+        if (mancheDomanda is null)
+            return;
+
+        db.ManchesDomande.Remove(mancheDomanda);
+        await db.SaveChangesAsync();
 
         await OnParametersSetAsync();
         StateHasChanged();
@@ -238,7 +250,18 @@ else
     {
         try
         {
-            await Db.SaveChangesAsync();
+            await using var db = await DbFactory.CreateDbContextAsync();
+            foreach (var domanda in _domandeManche)
+            {
+                var mancheDomanda = await db.ManchesDomande.FirstOrDefaultAsync(item => item.Id == domanda.Id);
+                if (mancheDomanda is null)
+                    continue;
+
+                mancheDomanda.Index = domanda.Index;
+                mancheDomanda.ModificatorePunti = domanda.ModificatorePunti;
+            }
+
+            await db.SaveChangesAsync();
             _messaggio = "Ordine e moltiplicatori salvati.";
         }
         catch (Exception ex)
@@ -254,11 +277,7 @@ else
         if (idx <= 0) return;
 
         var sopra = ordered[idx - 1];
-        var tmp = md.Index;
-        md.Index = sopra.Index;
-        sopra.Index = tmp;
-
-        await Db.SaveChangesAsync();
+        await ScambiaOrdineAsync(md.Id, sopra.Id);
         await OnParametersSetAsync();
         StateHasChanged();
     }
@@ -270,11 +289,7 @@ else
         if (idx < 0 || idx >= ordered.Count - 1) return;
 
         var sotto = ordered[idx + 1];
-        var tmp = md.Index;
-        md.Index = sotto.Index;
-        sotto.Index = tmp;
-
-        await Db.SaveChangesAsync();
+        await ScambiaOrdineAsync(md.Id, sotto.Id);
         await OnParametersSetAsync();
         StateHasChanged();
     }
@@ -289,6 +304,21 @@ else
         {
             Nav.NavigateTo("/admin");
         }
+    }
+
+    private async Task ScambiaOrdineAsync(int primaId, int secondaId)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var prima = await db.ManchesDomande.FirstOrDefaultAsync(item => item.Id == primaId);
+        var seconda = await db.ManchesDomande.FirstOrDefaultAsync(item => item.Id == secondaId);
+        if (prima is null || seconda is null)
+            return;
+
+        var indice = prima.Index;
+        prima.Index = seconda.Index;
+        seconda.Index = indice;
+
+        await db.SaveChangesAsync();
     }
 
     private string Filtro

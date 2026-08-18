@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Core.Entities;
 
@@ -31,7 +31,7 @@ public static class ArciQuizDbInitializer
         // 3) Domande
         var domanda1 = new Domanda
         {
-            Categoria = "Generale",
+            Categoria = "Cultura generale",
             Difficolta = "Facile",
             Testo = "In che regione si trovano le Marche?",
             RispostaA = "Nel nord Italia",
@@ -43,7 +43,7 @@ public static class ArciQuizDbInitializer
 
         var domanda2 = new Domanda
         {
-            Categoria = "Cinema",
+            Categoria = "Cinema e TV",
             Difficolta = "Media",
             Testo = "Chi ha diretto il film 'La vita è bella'?",
             RispostaA = "Paolo Sorrentino",
@@ -94,7 +94,8 @@ public static class ArciQuizDbInitializer
         var player = new Player
         {
             NomeSquadra = "Gli Infallibili",
-            Password = "demo"
+            Password = "demo",
+            Partita = partita
         };
 
         var iscrizione = new PlayerPartita

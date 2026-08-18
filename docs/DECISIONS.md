@@ -29,10 +29,10 @@ Questo documento contiene decisioni durevoli. Non è un diario e non descrive lo
 | D-023 | 2026-07-10 | Nessuna vista spettatore nella prima release. | Le sole viste pubbliche sono registrazione, client squadra autenticato e proiettore. |
 | D-024 | 2026-07-10 | Il proprietario sceglie il branch; agenti senza push e senza decisioni funzionali inventate. | L'agente lavora sul branch corrente, marca `BLOCKED` quando serve e non crea commit salvo richiesta. |
 | D-025 | 2026-07-10 | Ogni sessione autonoma completa un solo task `READY`. | TODO ordinato, stato e worklog aggiornati prima di fermarsi. |
+| D-026 | 2026-08-18 | Lo stato `Pronta` rappresenta la lobby pubblica. | La registrazione pubblica è consentita solo per partite `Pronta` e si chiude al passaggio a `InCorso`; l'admin può comunque inserire squadre ritardatarie. |
 
 ## Decisioni aperte non bloccanti
 
 - Necessità di esportare classifiche e risultati oltre alla consultazione dello storico.
 - Necessità di un comando di backup/ripristino oltre alla copia documentata del database locale.
 - Eventuale correzione del nome progetto `Infrasctructure`, da valutare solo quando non crea rumore rispetto alle priorità funzionali.
-

@@ -1,4 +1,5 @@
 ﻿@page "/"
+@attribute [Authorize]
 @page "/admin"
 @rendermode InteractiveServer
 
@@ -6,7 +7,7 @@
 @using Core.Entities
 @using Core.Enums
 @using Microsoft.EntityFrameworkCore
-@inject ArciQuizDbContext Db
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
 
 <PageTitle>ArciQuiz - Admin</PageTitle>
 
@@ -48,6 +49,14 @@ else
             <button class="btn btn-secondary" disabled>
                 Apri vista proiettore (coming soon)
             </button>
+
+            @if (_partitaAttiva.Stato == PartitaStato.Pronta)
+            {
+                <LanQr Title="QR iscrizione squadre"
+                       RelativePath="/registrazione"
+                       Port="5000"
+                       MaxWidthPx="240" />
+            }
         </div>
     </div>
 }
@@ -123,15 +132,19 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
         // per ora consideriamo attiva "l'ultima non conclusa"
-        _partitaAttiva = await Db.Partite
+        _partitaAttiva = await db.Partite
+            .AsNoTracking()
             .Include(p => p.Manches)
             .Include(p => p.PlayersPartita)
             .Where(p => p.Stato != PartitaStato.Conclusa)
             .OrderByDescending(p => p.DtCreazione)
             .FirstOrDefaultAsync();
 
-        _ultimePartite = await Db.Partite
+        _ultimePartite = await db.Partite
+            .AsNoTracking()
             .Include(p => p.Manches)
             .Include(p => p.PlayersPartita)
             .OrderByDescending(p => p.DtCreazione)
@@ -150,8 +163,9 @@ else
             Titolo = "Nuova partita demo " + DateTime.Now.ToString("HH:mm")
         };
 
-        Db.Partite.Add(p);
-        await Db.SaveChangesAsync();
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Partite.Add(p);
+        await db.SaveChangesAsync();
 
         // ricarica dati
         await OnInitializedAsync();

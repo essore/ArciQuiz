@@ -1,12 +1,9 @@
-﻿using Core.Enums;
+using Core.Enums;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Core.Entities
 {
-
     public class Partita
     {
         public int Id { get; set; }
@@ -14,8 +11,15 @@ namespace Core.Entities
         public PartitaStato Stato { get; set; } = PartitaStato.Nuova;
         public string Titolo { get; set; } = string.Empty;
 
-        // Navigazioni (serviranno con EF)
+        public int? CurrentMancheId { get; set; }
+        public int? CurrentMancheDomandaId { get; set; }
+        public DateTime? DtInizioUtc { get; set; }
+        public DateTime? DtFineUtc { get; set; }
+
+        // Navigazioni
         public ICollection<Manche> Manches { get; set; } = new List<Manche>();
         public ICollection<PlayerPartita> PlayersPartita { get; set; } = new List<PlayerPartita>();
+        public ICollection<Player> Players { get; set; } = new List<Player>();
     }
 }
+

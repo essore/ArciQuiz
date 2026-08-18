@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Core.Entities
 {
@@ -8,7 +7,13 @@ namespace Core.Entities
     {
         public int PlayerId { get; set; }
         public int PartitaId { get; set; }
+
+        public string? SessionToken { get; set; }
+        public DateTime DtIscrizioneUtc { get; set; } = DateTime.UtcNow;
+        public DateTime? DtUltimoAccessoUtc { get; set; }
+
         public Player? Player { get; set; }
         public Partita? Partita { get; set; }
     }
 }
+

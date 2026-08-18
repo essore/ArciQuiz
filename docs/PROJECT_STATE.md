@@ -1,27 +1,21 @@
 # Stato del progetto
 
-Ultima verifica: **2026-07-11**  
+Ultima verifica: **2026-08-18**  
 Commit ispezionato prima della documentazione: `4f9df12` (`master`)  
-Stadio: **prototipo compilabile con baseline di test e migrazioni EF Core, non eseguibile end-to-end**
+Stadio: **prototipo compilabile con baseline di test (26 casi), migrazioni EF Core, modello persistente della prima release, catalogo CSV, dashboard admin protetta e registrazione squadre (AQ-021 completato)**
 
 ## Baseline verificata
 
 Comandi eseguiti:
 
 ```powershell
-dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1
-dotnet build ArciQuiz.slnx --no-restore -m:1
+dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
+dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 ```
 
-Esito: test riusciti (2 casi) e build riuscita, 0 errori e 3 avvisi.
+Esito: test riusciti (26 casi su migrazioni, vincoli univoci squadra/risposta, persistenza estesa, validazione della partita pronta, CSV domande, perimetro admin e registrazione squadre) e build riuscita, 0 errori e 3 avvisi noti.
 
-Avvisi rilevanti:
-
-- dipendenze transitive con vulnerabilità note;
-- campi inutilizzati nella regia;
-- messaggi anomali `No Authorization header detected` durante la valutazione dei progetti.
-
-Il task successivo autorizzato è `AQ-005` in [TODO.md](TODO.md).
+Completato `AQ-021`: registrazione pubblica disponibile nella lobby (`Pronta`), amministrazione squadre e inserimento ritardato admin completati. `AQ-022` è ora il task autorizzato in coda (`READY`).
 
 ## Funzioni presenti
 
@@ -31,8 +25,12 @@ Il task successivo autorizzato è `AQ-005` in [TODO.md](TODO.md).
 - Blazor Interactive Server;
 - database SQLite con migrazione iniziale EF Core e seed limitato allo sviluppo;
 - catalogo domande con creazione, modifica, filtro e soft delete;
+- import/export CSV del catalogo con validazione atomica e segnalazione degli errori per riga;
+- autenticazione amministrativa locale per dashboard, regia e operazioni amministrative;
+- registrazione pubblica delle squadre in lobby e gestione admin con recupero/modifica password;
 - creazione partita e manche;
 - configurazione di manche e associazione/ordine delle domande;
+- validazione server-side della transizione della partita a `Pronta`, con messaggi italiani;
 - dashboard admin prototipale;
 - regia prototipale per avanzare tra domande;
 - vista proiettore collegata allo stato runtime;
@@ -52,11 +50,7 @@ Il task successivo autorizzato è `AQ-005` in [TODO.md](TODO.md).
 
 ## Funzioni mancanti per la prima release
 
-- autenticazione admin locale;
-- lobby e registrazione squadra via QR;
-- inserimento e modifica squadra da admin;
 - sessione esclusiva dell'ultimo telefono autenticato;
-- iscrizione tardiva;
 - client smartphone per leggere e rispondere;
 - timer server-authoritative con override per domanda;
 - risposta immutabile e idempotente;
@@ -66,18 +60,16 @@ Il task successivo autorizzato è `AQ-005` in [TODO.md](TODO.md).
 - classifiche parziali, di manche e finale;
 - annullamento domanda e ricalcolo;
 - persistenza e ripresa della partita;
-- import/export CSV delle domande;
 - storico partite e punteggi;
 - packaging e avvio Windows per utenti non tecnici;
 - CI.
 
 ## Debito e rischi noti
 
-- uso non uniforme e potenzialmente troppo lungo del `DbContext` nei circuiti Blazor;
+- smoke test runtime da ripetere per AQ-005 in un ambiente autorizzato a scrivere nel registro eventi Windows;
 - stato live singleton come fonte di verità volatile;
 - dipendenze transitive vulnerabili;
-- suite di test ancora limitata a due casi;
-- nessuna protezione delle route amministrative;
+- suite di test ancora limitata a ventisei casi;
 - nomi con refusi (`Infrasctructure`, `GameStateService cs.cs`);
 - file demo e ampie porzioni commentate;
 - possibile conflitto tra endpoint Kestrel e profili di lancio;

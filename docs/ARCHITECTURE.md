@@ -18,7 +18,7 @@ Contiene le entità EF/dominio:
 - `MancheDomanda`;
 - `Domanda`;
 - `Player`;
-- `PlayerPartita`;
+- `PlayerPartita`; 
 - `MancheRispostaRicevuta`.
 
 Contiene inoltre gli enum di stato e il record runtime `GameState`.

@@ -1,9 +1,12 @@
 ﻿@page "/domande"
+@attribute [Authorize]
 
 @using Core.Entities
+@using Core.Services
 @using Infrasctructure.Data
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
-@inject ArciQuizDbContext Db
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
 
 <PageTitle>Gestione Domande</PageTitle>
 
@@ -18,12 +21,22 @@
     <div class="col-md-6">
         <div class="mb-3">
             <label class="form-label">Categoria</label>
-            <input class="form-control" @bind="_categoria" />
+            <select class="form-select" @bind="_categoria">
+                @foreach (var categoria in DomandeCsvService.Categorie)
+                {
+                    <option value="@categoria">@categoria</option>
+                }
+            </select>
         </div>
 
         <div class="mb-3">
             <label class="form-label">Difficoltà</label>
-            <input class="form-control" @bind="_difficolta" />
+            <select class="form-select" @bind="_difficolta">
+                @foreach (var difficolta in DomandeCsvService.Difficolta)
+                {
+                    <option value="@difficolta">@difficolta</option>
+                }
+            </select>
         </div>
 
         <div class="mb-3">
@@ -75,6 +88,25 @@
 @if (!string.IsNullOrEmpty(_errore))
 {
     <div class="alert alert-danger mt-3">@_errore</div>
+}
+
+<hr />
+
+<h2>Importa ed esporta CSV</h2>
+<p><a href="/api/domande/export">Scarica il catalogo CSV</a>. Il formato è documentato in <code>docs/CSV_DOMANDE.md</code>.</p>
+<InputFile OnChange="ImportaCsv" accept=".csv,text/csv" />
+
+@if (_erroriImportazione.Count > 0)
+{
+    <div class="alert alert-danger mt-3">
+        <p>Nessuna domanda è stata importata.</p>
+        <ul>
+            @foreach (var errore in _erroriImportazione)
+            {
+                <li>Riga @errore.NumeroRiga: @errore.Motivo</li>
+            }
+        </ul>
+    </div>
 }
 
 <hr />
@@ -147,7 +179,7 @@ else
 
     // stato form
     private Domanda? _domandaInEditing;
-    private string _categoria = "Generale";
+    private string _categoria = DomandeCsvService.Categorie[0];
     private string _difficolta = "Facile";
     private string _testo = string.Empty;
     private string _a = string.Empty;
@@ -159,6 +191,7 @@ else
     private string _filtro = string.Empty;
     private string? _messaggio;
     private string? _errore;
+    private List<DomandeCsvImportError> _erroriImportazione = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -167,7 +200,10 @@ else
 
     private async Task CaricaDomande()
     {
-        _tutteDomande = await Db.Domande
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        _tutteDomande = await db.Domande
+            .AsNoTracking()
             .Where(d => !d.FlgDeleted) // escludi cancellate
             .ToListAsync();
 
@@ -234,19 +270,27 @@ else
             return;
         }
 
-        Domanda d;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var isNew = _domandaInEditing is null;
+        Domanda? d = isNew
+            ? new Domanda()
+            : await db.Domande.FirstOrDefaultAsync(domanda => domanda.Id == _domandaInEditing!.Id);
 
-        if (_domandaInEditing is null)
+        if (d is null)
         {
-            // nuova domanda
-            d = new Domanda();
-            Db.Domande.Add(d);
+            _errore = "La domanda da modificare non è più disponibile.";
+            return;
         }
-        else
+
+        if (!DomandeCsvService.Categorie.Contains(_categoria, StringComparer.Ordinal)
+            || !DomandeCsvService.Difficolta.Contains(_difficolta, StringComparer.Ordinal))
         {
-            // modifica esistente
-            d = _domandaInEditing;
+            _errore = "Categoria o difficoltà non ammesse.";
+            return;
         }
+
+        if (isNew)
+            db.Domande.Add(d);
 
         d.Categoria = _categoria;
         d.Difficolta = _difficolta;
@@ -258,9 +302,9 @@ else
         d.RispostaEsatta = esatta;
         d.FlagErrore = false; // ogni modifica azzera l'errore
 
-        await Db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
-        _messaggio = _domandaInEditing is null
+        _messaggio = isNew
             ? "Domanda creata."
             : "Domanda modificata. FlagErrore azzerato.";
 
@@ -293,7 +337,7 @@ else
 
     private void ResetForm()
     {
-        _categoria = "Generale";
+        _categoria = DomandeCsvService.Categorie[0];
         _difficolta = "Facile";
         _testo = string.Empty;
         _a = _b = _c = _d = string.Empty;
@@ -305,11 +349,19 @@ else
         _errore = null;
         _messaggio = null;
 
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var domanda = await db.Domande.FirstOrDefaultAsync(domanda => domanda.Id == d.Id);
+        if (domanda is null)
+        {
+            _errore = "La domanda da eliminare non è più disponibile.";
+            return;
+        }
+
         // se la domanda è già usata in una manche, non la eliminiamo a livello DB.
         // soft delete: FlgDeleted = true
-        d.FlgDeleted = true;
+        domanda.FlgDeleted = true;
 
-        await Db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         _messaggio = "Domanda eliminata (soft delete).";
 
@@ -320,6 +372,42 @@ else
 
         await CaricaDomande();
         StateHasChanged();
+    }
+
+    // Valida l'intero file prima del salvataggio, per evitare importazioni parziali.
+    private async Task ImportaCsv(InputFileChangeEventArgs args)
+    {
+        _errore = null;
+        _messaggio = null;
+        _erroriImportazione = [];
+
+        try
+        {
+            await using var stream = args.File.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var reader = new StreamReader(stream);
+            var result = DomandeCsvService.Import(await reader.ReadToEndAsync());
+            if (!result.IsValid)
+            {
+                _erroriImportazione = result.Errori.ToList();
+                return;
+            }
+
+            if (result.Domande.Count == 0)
+            {
+                _errore = "Il file non contiene domande da importare.";
+                return;
+            }
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            db.Domande.AddRange(result.Domande);
+            await db.SaveChangesAsync();
+            _messaggio = $"Importate {result.Domande.Count} domande.";
+            await CaricaDomande();
+        }
+        catch (IOException)
+        {
+            _errore = "Non è stato possibile leggere il file CSV.";
+        }
     }
 
     private string GetRowClass(Domanda d)

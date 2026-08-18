@@ -1,11 +1,12 @@
 ﻿@page "/regia/{PartitaId:int}"
+@attribute [Authorize]
 
 @using Core.Entities
 @using Core.Enums
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
 @using Web.Services
-@inject ArciQuizDbContext Db
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
 @inject NavigationManager Nav
 @inject IGameStateService GameState
 @inject Web.Services.ILanAddressService Lan
@@ -300,7 +301,17 @@ else
 
         try
         {
-            var ordered = _mancheCorrente.Domande.OrderBy(md => md.Index).ToList();
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var manche = await db.Manches
+                .Include(item => item.Domande)
+                .FirstOrDefaultAsync(item => item.Id == _mancheCorrente.Id);
+            if (manche is null)
+            {
+                _errore = "La manche non è più disponibile.";
+                return;
+            }
+
+            var ordered = manche.Domande.OrderBy(md => md.Index).ToList();
             var current = ordered.FirstOrDefault(md => md.DtStart != null && md.DtEnd == null);
 
             if (current is not null)
@@ -312,9 +323,9 @@ else
 
             var first = ordered.First();
             first.DtStart = DateTime.UtcNow;
-            _mancheCorrente.Stato = MancheStato.InGioco;
+            manche.Stato = MancheStato.InGioco;
 
-            await Db.SaveChangesAsync();
+            await db.SaveChangesAsync();
 
             await ReloadFromDbAsync(publish: true);
             _messaggio = "Manche avviata e prima domanda attiva.";
@@ -335,7 +346,17 @@ else
 
         try
         {
-            var ordered = _mancheCorrente.Domande.OrderBy(md => md.Index).ToList();
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var manche = await db.Manches
+                .Include(item => item.Domande)
+                .FirstOrDefaultAsync(item => item.Id == _mancheCorrente.Id);
+            if (manche is null)
+            {
+                _errore = "La manche non è più disponibile.";
+                return;
+            }
+
+            var ordered = manche.Domande.OrderBy(md => md.Index).ToList();
             var current = ordered.FirstOrDefault(md => md.DtStart != null && md.DtEnd == null);
 
             if (current is null)
@@ -343,9 +364,9 @@ else
                 // non c'è una corrente: attiva la prima
                 var first = ordered.First();
                 first.DtStart = DateTime.UtcNow;
-                _mancheCorrente.Stato = MancheStato.InGioco;
+                manche.Stato = MancheStato.InGioco;
 
-                await Db.SaveChangesAsync();
+                await db.SaveChangesAsync();
 
                 await ReloadFromDbAsync(publish: true);
                 _messaggio = "Prima domanda attivata.";
@@ -359,7 +380,7 @@ else
             {
                 next.DtStart = DateTime.UtcNow;
 
-                await Db.SaveChangesAsync();
+                await db.SaveChangesAsync();
 
                 await ReloadFromDbAsync(publish: true);
                 _messaggio = $"Passato alla domanda {next.Index}.";
@@ -367,8 +388,8 @@ else
             }
 
             // Fine manche
-            _mancheCorrente.Stato = MancheStato.Conclusa;
-            await Db.SaveChangesAsync();
+            manche.Stato = MancheStato.Conclusa;
+            await db.SaveChangesAsync();
 
             await ReloadFromDbAsync(publish: true);
             _messaggio = "Nessuna domanda successiva. Manche conclusa.";
@@ -388,15 +409,25 @@ else
 
         try
         {
-            var current = _mancheCorrente.Domande
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var manche = await db.Manches
+                .Include(item => item.Domande)
+                .FirstOrDefaultAsync(item => item.Id == _mancheCorrente.Id);
+            if (manche is null)
+            {
+                _errore = "La manche non è più disponibile.";
+                return;
+            }
+
+            var current = manche.Domande
                 .FirstOrDefault(md => md.DtStart != null && md.DtEnd == null);
 
             if (current is not null)
                 current.DtEnd = DateTime.UtcNow;
 
-            _mancheCorrente.Stato = MancheStato.Conclusa;
+            manche.Stato = MancheStato.Conclusa;
 
-            await Db.SaveChangesAsync();
+            await db.SaveChangesAsync();
 
             await ReloadFromDbAsync(publish: true);
             _messaggio = "Manche chiusa manualmente.";
@@ -409,7 +440,10 @@ else
 
     private async Task ReloadFromDbAsync(bool publish)
     {
-        _partita = await Db.Partite
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        _partita = await db.Partite
+            .AsNoTracking()
             .Include(p => p.Manches)
                 .ThenInclude(m => m.Domande)
                     .ThenInclude(md => md.Domanda)

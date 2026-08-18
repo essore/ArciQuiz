@@ -1,9 +1,11 @@
 ﻿@page "/nuova-partita"
+@attribute [Authorize]
 @rendermode InteractiveServer
 
 @using Core.Entities
 @using Infrasctructure.Data
-@inject ArciQuizDbContext Db
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
 @inject NavigationManager Nav
 
 <PageTitle>Nuova Partita</PageTitle>
@@ -58,7 +60,8 @@
             DtCreazione = DateTime.UtcNow
         };
 
-        Db.Partite.Add(partita);
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Partite.Add(partita);
 
         // 2) Creiamo N manche iniziali
         for (int i = 0; i < NumeroManche; i++)
@@ -72,11 +75,11 @@
                 MaxAstensioni = 3
             };
 
-            Db.Manches.Add(m);
+            db.Manches.Add(m);
         }
 
         // 3) Salviamo tutto
-        await Db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         // 4) Redirect alla pagina di configurazione (TO-DO)
         Nav.NavigateTo("/admin");

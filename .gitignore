@@ -74,6 +74,9 @@ artifacts/
 *.sqlite-wal
 *.sqlite3
 
+# Credenziali locali dell'amministratore
+appsettings.Local.json
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 

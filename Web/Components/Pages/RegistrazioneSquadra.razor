@@ -1,0 +1,65 @@
+@page "/registrazione"
+@rendermode InteractiveServer
+
+@using Infrasctructure.Data
+@using Microsoft.EntityFrameworkCore
+@using Web.Services
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
+
+<PageTitle>Iscrizione squadra</PageTitle>
+
+<h1>Iscrivi la tua squadra</h1>
+
+@if (_iscrizioniAperte is false)
+{
+    <div class="alert alert-info">Le iscrizioni pubbliche non sono aperte in questo momento.</div>
+}
+else
+{
+    <p>Inserisci un nome e una password: l'amministratore potrà aiutarti a recuperarla se necessario.</p>
+    <div class="mb-3">
+        <label class="form-label">Nome squadra</label>
+        <input class="form-control" @bind="_nomeSquadra" maxlength="80" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input class="form-control" type="password" @bind="_password" maxlength="100" />
+    </div>
+    <button class="btn btn-primary" @onclick="RegistraAsync">Conferma iscrizione</button>
+}
+
+@if (!string.IsNullOrWhiteSpace(_messaggio))
+{
+    <div class="alert @(_isSuccess ? "alert-success" : "alert-danger") mt-3">@_messaggio</div>
+}
+
+@code {
+    private bool? _iscrizioniAperte;
+    private string _nomeSquadra = string.Empty;
+    private string _password = string.Empty;
+    private string? _messaggio;
+    private bool _isSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _iscrizioniAperte = await db.Partite.AnyAsync(partita => partita.Stato == Core.Enums.PartitaStato.Pronta);
+    }
+
+    private async Task RegistraAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var result = await SquadreService.RegistraAsync(db, null, _nomeSquadra, _password, isAdmin: false);
+        _isSuccess = result.IsSuccess;
+        _messaggio = result.Messaggio;
+        if (result.IsSuccess)
+        {
+            _nomeSquadra = string.Empty;
+            _password = string.Empty;
+        }
+        else
+        {
+            _iscrizioniAperte = await db.Partite.AnyAsync(partita => partita.Stato == Core.Enums.PartitaStato.Pronta);
+        }
+    }
+}
