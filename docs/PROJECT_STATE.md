@@ -1,9 +1,9 @@
 # Stato del progetto
 
-Ultima verifica: **2026-08-18**  
+Ultima verifica: **2026-08-19**  
 Commit ispezionato prima della documentazione: `3b476a5` (`master`)
 
-Stadio: **prototipo compilabile con baseline di test (63 casi), ingresso QR unico e shell squadra mobile-first (AQ-025 completato)**
+Stadio: **prototipo compilabile con baseline di test (99 casi), partita attiva persistita e navigazione admin esplicita (AQ-044 completato)**
 
 ## Baseline verificata
 
@@ -14,9 +14,9 @@ dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 ```
 
-Esito: test riusciti (63 casi, inclusi selezione dello schema cookie per area admin/squadra e circuito Blazor, routing/sessione squadra, view model per fase, matrice delle transizioni, idempotenza, timer con clock controllato, limite di scadenza e recupero dopo riavvio) e build riuscita, 0 errori e 3 avvisi noti.
+Esito: test riusciti (99 casi, inclusi calcolo coefficiente tempo, punteggi con moltiplicatori, malus, registrazione automatica astensioni con soglia per manche, idempotenza, routing/sessione squadra, invio risposta, soluzione/distribuzione, classifiche, annullamento, macchina a stati, recupero su SQLite riaperto e partita attiva) e build riuscita, 0 errori e 3 avvisi noti.
 
-Completati `AQ-024` e `AQ-025`: il QR del proiettore punta sempre a `/gioca`, che instrada registrazione, login o rientro dalla sessione; la squadra dispone di una shell mobile ricostruita dallo stato persistito e filtrata per non esporre la soluzione prima della fase consentita. `AQ-032` è ora il task autorizzato in coda (`READY`).
+Completato `AQ-045`: la dashboard espone direttamente l'elenco partite e il comando `Nuova partita`, senza duplicare collegamenti prototipali; la gestione domande resta nel menu admin protetto. `AQ-046` è ora il task autorizzato in coda (`READY`); `AQ-041` resta pianificato dopo i task funzionali.
 
 ## Funzioni presenti
 
@@ -34,6 +34,12 @@ Completati `AQ-024` e `AQ-025`: il QR del proiettore punta sempre a `/gioca`, ch
 - pagine di login admin/squadra esplicite e collegate reciprocamente, con menu Blazor distinto per ruolo;
 - lobby pubblica su proiettore con QR stabile verso l'ingresso unico e conteggio squadre aggiornato;
 - shell squadra mobile-first per attesa, domanda, tempo scaduto, soluzione, classifica, fine manche e fine partita;
+- invio autorevole della prima risposta A/B/C/D, idempotente anche in caso di invii concorrenti e rifiutato per sessione sostituita o timer scaduto;
+- calcolo deterministico e persistito dei punteggi, malus, coefficiente di velocità e astensioni automatiche con gestione della soglia per manche;
+- soluzione sul proiettore con distribuzione risposte A/B/C/D e feedback personale con variazione punti sul telefono;
+- classifica parziale, di fine manche e finale con podio ed ex aequo;
+- annullamento tracciato della singola occorrenza giocata con ricalcolo di punteggi, astensioni e classifiche;
+- selezione persistita di una sola partita attiva, con indice SQLite che impedisce attivazioni concorrenti;
 - macchina a stati persistente con comandi idempotenti e recupero dopo riavvio;
 - timer server-authoritative con override per domanda, chiusura automatica e countdown condiviso;
 - creazione partita e manche;
@@ -46,20 +52,11 @@ Completati `AQ-024` e `AQ-025`: il QR del proiettore punta sempre a `/gioca`, ch
 
 ## Funzioni parziali o divergenti
 
-- la shell squadra e il timer derivano dallo stato persistito, ma selezione e invio delle risposte non sono ancora implementati;
-- flag errore associato alla domanda globale, mentre il requisito richiede anche l'annullamento della specifica occorrenza giocata;
 - pagine e codice demo del template ancora presenti;
 - UI e logica dati concentrate nei componenti Razor.
 
 ## Funzioni mancanti per la prima release
 
-- invio della risposta dal client smartphone;
-- risposta immutabile e idempotente;
-- registrazione automatica delle astensioni alla chiusura;
-- punteggio con velocità, moltiplicatori, malus e soglia astensioni;
-- soluzione e distribuzione delle risposte;
-- classifiche parziali, di manche e finale;
-- annullamento domanda e ricalcolo;
 - storico partite e punteggi;
 - packaging e avvio Windows per utenti non tecnici;
 - CI.
@@ -67,7 +64,6 @@ Completati `AQ-024` e `AQ-025`: il QR del proiettore punta sempre a `/gioca`, ch
 ## Debito e rischi noti
 
 - dipendenze transitive vulnerabili;
-- suite di test ancora limitata a sessantatré casi;
 - smoke visivo automatico a larghezza mobile non eseguito per un errore del plugin browser sul percorso Windows del profilo; flusso HTTP reale, viewport e CSS responsive sono stati verificati;
 - credenziale admin predefinita presente in `Web/appsettings.json`; va rimossa dai file versionati prima della distribuzione;
 - nomi con refusi (`Infrasctructure`, `GameStateService cs.cs`);

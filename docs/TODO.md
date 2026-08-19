@@ -238,7 +238,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
 ### AQ-032 — Implementare il client squadra e l'invio risposta
 
-- Stato: `READY`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-025
 - Obiettivo: mostrare domanda e A/B/C/D e accettare una sola risposta immutabile.
@@ -248,11 +248,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - risposta non modificabile;
   - sessione sostituita e risposta tardiva rifiutate;
   - UI mobile leggibile.
-- Validazione: test concorrenza/idempotenza, build e smoke test mobile.
+- Validazione: test concorrenza/idempotenza (5 casi), suite completa (68 casi), build completa e verifica markup/CSS mobile completati.
 
 ### AQ-033 — Calcolare punteggio e astensioni
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-032
 - Obiettivo: applicare integralmente le formule di PRODUCT alla chiusura della domanda.
@@ -263,11 +263,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - oltre soglia stesso malus dell'errore;
   - calcolo deterministico e idempotente;
   - dettaglio persistito per consentire audit e ricalcolo.
-- Validazione: test tabellari su corretto, errato, limite tempo, soglia astensioni e moltiplicatori.
+- Validazione: creati test unitari tabellari per coefficiente tempo (1.0-0.5), punti base/moltiplicatori, malus e gestione soglia astensioni; verificate astensioni automatiche per squadre senza risposta e idempotenza (84 test xUnit superati, 0 errori di compilazione).
 
 ### AQ-034 — Mostrare soluzione e distribuzione risposte
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-033
 - Obiettivo: aggiornare proiettore e telefoni dopo la chiusura.
@@ -276,11 +276,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - telefono mostra corretto, errato o astenuto e variazione punti;
   - nessun conteggio live durante la domanda;
   - squadre iscritte in ritardo gestite coerentemente.
-- Validazione: test view model e smoke test multi-client.
+- Validazione: test view model per esiti corretto/errato/astenuto e squadra iscritta in ritardo (12 casi pertinenti), suite completa (88 casi) e build completate; avvio isolato riuscito, smoke interattivo multi-client non automatizzato per errore del connettore browser.
 
 ### AQ-035 — Implementare classifiche e podio
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-033
 - Obiettivo: produrre classifica parziale, di fine manche e finale.
@@ -290,11 +290,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - finale con podio e vincitori;
   - parità visualizzata ex aequo;
   - risultati ricostruibili dai dettagli persistiti.
-- Validazione: test ordinamento/parità e smoke test proiettore.
+- Validazione: test unitario ordinamento/parità e test d'integrazione su punteggi persistiti e occorrenze annullate (2 casi), suite completa (90 casi) e build completate; smoke visivo proiettore da ripetere quando il connettore browser sarà disponibile.
 
 ### AQ-036 — Annullare una domanda e ricalcolare
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-033, AQ-035
 - Obiettivo: annullare una specifica domanda giocata senza cancellare il catalogo.
@@ -304,13 +304,13 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - domanda catalogo segnalata per revisione;
   - operazione tracciata e idempotente;
   - test con annullamento prima e dopo il superamento della soglia astensioni.
-- Validazione: test di ricalcolo, build e smoke test regia.
+- Validazione: test d'integrazione su annullamento prima/dopo il superamento della soglia, idempotenza e classifica ricalcolata (2 casi), suite completa (92 casi) e build completate; smoke interattivo regia da ripetere quando il connettore browser sarà disponibile.
 
 ## Milestone M4 — Esercizio reale
 
 ### AQ-040 — Verificare recupero completo dopo riavvio
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
 - Dipendenze: AQ-030, AQ-031, AQ-033
 - Obiettivo: riprendere una partita senza perdita o duplicazione di stato.
@@ -318,13 +318,127 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - test per lobby, domanda aperta, domanda scaduta, soluzione e fine manche;
   - sessioni squadra e classifiche coerenti;
   - procedura manuale documentata.
-- Validazione: test integrazione e prova di arresto/riavvio.
+- Validazione: 5 test d'integrazione su SQLite riaperto per lobby, domanda aperta/scaduta, soluzione e fine manche; verificate sessioni e classifica persistite, idempotenza della chiusura scaduta, suite completa (97 casi) e build completate. Procedura manuale in README.
+
+## Milestone M4a — Pulizia funzionale e usabilità
+
+### AQ-044 — Gestire partita attiva, storico e navigazione admin
+
+- Stato: `DONE`
+- Priorità: P0
+- Dipendenze: AQ-040
+- Obiettivo: rendere esplicita la partita attiva e permettere all'admin di aprire la regia e il proiettore della partita scelta, senza usare implicitamente l'ultima partita.
+- Criteri di accettazione:
+  - il bottone per aprire il proiettore apre una vista funzionante per la partita selezionata;
+  - l'admin può scegliere quale partita è attiva, con una sola partita attiva alla volta;
+  - dall'elenco è possibile aprire la regia di una partita specifica;
+  - una partita vecchia può essere marcata come conclusa e non può tornare attiva senza un'azione esplicita;
+  - lo storico e i punteggi delle partite concluse restano conservati; eventuale cancellazione definitiva richiede una decisione separata.
+- Validazione: test d'integrazione sulla selezione esclusiva della partita attiva, sul rifiuto di riattivare una conclusa e sull'ingresso pubblico (2 casi); suite completa (99 casi), build e controllo migrazioni completati. Smoke interattivo da ripetere con un'istanza locale disponibile.
+
+### AQ-045 — Semplificare menu e layout della dashboard admin
+
+- Stato: `DONE`
+- Priorità: P1
+- Dipendenze: AQ-044
+- Obiettivo: ridurre la duplicazione nella dashboard e rendere immediato l'avvio di una nuova partita.
+- Criteri di accettazione:
+  - il bottone/collegamento rapido `Gestisci domande` viene rimosso dalla pagina dashboard admin;
+  - la voce `Gestisci domande` resta disponibile nel menu di navigazione admin;
+  - l'elenco delle partite è visibile direttamente nella dashboard, senza un bottone dedicato per mostrarlo;
+  - il bottone `Nuova partita` è posizionato in alto a destra dell'elenco o della relativa intestazione;
+  - le operazioni restano disponibili solo agli utenti autorizzati.
+- Validazione: controllo statico di dashboard e menu, suite completa (99 casi) e build completati. Smoke a larghezza desktop/ridotta da ripetere con un'istanza locale disponibile.
+
+### AQ-046 — Correggere il contatore domande di `/partita`
+
+- Stato: `READY`
+- Priorità: P1
+- Dipendenze: AQ-045
+- Obiettivo: mostrare il numero reale di domande associate alla partita visualizzata.
+- Criteri di accettazione:
+  - il contatore non mostra sempre zero quando esistono domande associate;
+  - il conteggio riguarda la partita corrente e non l'ultima partita o il catalogo globale;
+  - il valore si aggiorna dopo aggiunta o rimozione di un'associazione;
+  - il caso di partita senza domande continua a mostrare zero.
+- Validazione: test del caricamento del riepilogo e smoke test con partite vuote e popolate.
+
+### AQ-047 — Impedire associazioni duplicate e nascondere gli ID interni
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-046
+- Obiettivo: rendere coerente l'associazione delle domande alle manche della stessa partita e rimuovere gli identificativi tecnici dall'interfaccia.
+- Criteri di accettazione:
+  - la stessa domanda non può essere associata a due manche della stessa partita;
+  - il vincolo viene verificato lato server prima del salvataggio, con messaggio chiaro in italiano;
+  - le pagine di gestione manche/domande non mostrano gli ID tecnici nei testi, nelle tabelle o nei controlli visibili;
+  - i collegamenti e le operazioni continuano a usare gli identificativi internamente senza esporli all'utente.
+- Validazione: test di validazione nominale e duplicata, più smoke test della gestione manche/domande.
+
+### AQ-048 — Riorganizzare la regia della partita
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-047
+- Obiettivo: rendere la regia leggibile e coerente con la partita selezionata, riducendo i comandi ambigui.
+- Criteri di accettazione:
+  - il proiettore è apribile con un'azione evidente in alto a destra;
+  - i comandi sono distribuiti in tre righe: partita, manche e domanda;
+  - i bottoni usano icone standard accompagnate da testo e da un'etichetta accessibile;
+  - viene verificato se il selettore della manche è ancora necessario: se non serve al flusso corrente viene rimosso, altrimenti mostra chiaramente il contesto e non consente di agire sulla manche sbagliata;
+  - la regia opera sulla partita selezionata e non ricade silenziosamente sull'ultima partita.
+- Validazione: smoke test delle azioni di partita/manche/domanda e verifica manuale del layout.
+
+### AQ-049 — Aggiungere il controllo di visibilità del QR sul proiettore
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-048
+- Obiettivo: permettere al presentatore di mostrare o nascondere il QR senza dover cambiare pagina.
+- Criteri di accettazione:
+  - la regia dispone di un comando esplicito mostra/nascondi QR;
+  - il proiettore applica il comando alla partita corrente senza refresh manuale;
+  - quando il QR è nascosto non rimane uno spazio vuoto o un elemento cliccabile;
+  - il QR continua a puntare all'ingresso corretto della partita.
+- Validazione: smoke test dei due stati e verifica su una seconda sessione proiettore.
+
+### AQ-050 — Ridisegnare la vista proiettore e i risultati della domanda
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-049
+- Obiettivo: rendere la vista proiettore pulita, leggibile durante la visualizzazione del qr e delle domande / risposte.
+- Criteri di accettazione:
+  - le risposte A/B/C/D hanno quattro colori basici, distinti e leggibili anche da lontano;
+  - dopo la chiusura viene evidenziata visivamente l'opzione corretta, senza affidarsi alla sola dicitura `risposta corretta: B`;
+  - durante la domanda non vengono mostrati conteggi o statistiche parziali;
+  - dopo la chiusura sono mostrati conteggi di risposte corrette, errate e astensioni;
+  - dopo la chiusura viene mostrata la squadra con la risposta valida più veloce; in caso di parità il risultato è esplicito;
+  - il layout resta lineare, contrastato e leggibile nelle fasi lobby, domanda, soluzione e classifica.
+- Validazione: test del view model per conteggi, astensioni, risposta più veloce e parità, più verifica visiva del proiettore.
+
+### AQ-051 — Clonare una partita
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-050
+- Obiettivo: permettere all'admin di creare una nuova partita partendo dalla configurazione di una partita di test o precedente, mantenendo manche e domande ma ricominciando con dati di serata puliti.
+- Criteri di accettazione:
+  - l'admin può avviare la clonazione da una partita esistente e assegnare un nuovo nome/titolo alla partita clonata;
+  - vengono copiate le manche, le relative regole, l'ordine e le associazioni alle domande del catalogo;
+  - le domande del catalogo vengono riutilizzate tramite riferimento, senza creare duplicati del catalogo;
+  - la nuova partita riceve identificativi propri e non modifica la partita sorgente;
+  - non vengono copiati squadre, password, sessioni, risposte, punteggi, classifiche, annullamenti o stato runtime della partita sorgente;
+  - la partita clonata parte in stato di preparazione e non diventa attiva automaticamente: l'admin può selezionarla esplicitamente e far iscrivere nuove squadre;
+  - un errore durante la clonazione non lascia una partita parzialmente creata.
+- Validazione: test del servizio/database con una partita sorgente popolata e già giocata, verifica che la configurazione sia completa e che i dati di partecipazione risultino vuoti, più smoke test dalla dashboard.
 
 ### AQ-041 — Ripulire residui del prototipo e avvisi
 
 - Stato: `PLANNED`
 - Priorità: P2
-- Dipendenze: AQ-040
+- Dipendenze: AQ-040, AQ-044, AQ-045, AQ-046, AQ-047, AQ-048, AQ-049, AQ-050, AQ-051
 - Obiettivo: rimuovere pagine demo, codice commentato, campi inutilizzati e avvisi non giustificati senza rifattorizzazioni architetturali.
 - Criteri di accettazione:
   - nessuna pagina template raggiungibile;

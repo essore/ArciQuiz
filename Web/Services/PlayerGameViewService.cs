@@ -17,6 +17,15 @@ public enum PlayerGameScreen
 
 public sealed record PlayerAnswerOption(char Code, string Text);
 
+public enum PlayerAnswerOutcome
+{
+    Correct,
+    Incorrect,
+    Abstained
+}
+
+public sealed record PlayerAnswerFeedback(PlayerAnswerOutcome Outcome, int PointsChange);
+
 public sealed record PlayerGameView(
     int PartitaId,
     string GameTitle,
@@ -26,7 +35,10 @@ public sealed record PlayerGameView(
     string? QuestionText,
     IReadOnlyList<PlayerAnswerOption> Options,
     char? CorrectAnswer,
-    DateTimeOffset? DeadlineUtc);
+    DateTimeOffset? DeadlineUtc,
+    int? MancheDomandaId,
+    char? RecordedAnswer,
+    PlayerAnswerFeedback? AnswerFeedback);
 
 public sealed record PlayerGameViewResult(bool SessionValid, PlayerGameView? View);
 
@@ -79,6 +91,19 @@ public static class PlayerGameViewService
 
         var screen = ResolveScreen(player.GameState, player.GamePhase, question?.ScadenzaUtc, timeProvider.GetUtcNow());
         var showQuestion = screen is PlayerGameScreen.Question or PlayerGameScreen.TimeExpired or PlayerGameScreen.Solution;
+        var answerFeedback = screen == PlayerGameScreen.Solution && player.CurrentMancheDomandaId.HasValue
+            ? await database.ManchesRisposte
+                .AsNoTracking()
+                .Where(item => item.PlayerId == playerId && item.MancheDomandaId == player.CurrentMancheDomandaId.Value)
+                .Select(item => new PlayerAnswerFeedback(
+                    item.IsAstenuto
+                        ? PlayerAnswerOutcome.Abstained
+                        : item.IsCorrect
+                            ? PlayerAnswerOutcome.Correct
+                            : PlayerAnswerOutcome.Incorrect,
+                    item.PuntiAssegnati))
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
         var options = showQuestion && question is not null
             ? new PlayerAnswerOption[]
             {
@@ -98,7 +123,16 @@ public static class PlayerGameViewService
             showQuestion ? question?.Testo : null,
             options,
             screen == PlayerGameScreen.Solution ? question?.RispostaEsatta : null,
-            screen == PlayerGameScreen.Question ? question?.ScadenzaUtc : null));
+            screen == PlayerGameScreen.Question ? question?.ScadenzaUtc : null,
+            screen == PlayerGameScreen.Question ? player.CurrentMancheDomandaId : null,
+            screen == PlayerGameScreen.Question && player.CurrentMancheDomandaId.HasValue
+                ? await database.ManchesRisposte
+                    .AsNoTracking()
+                    .Where(item => item.PlayerId == playerId && item.MancheDomandaId == player.CurrentMancheDomandaId.Value)
+                    .Select(item => item.Risposta)
+                    .SingleOrDefaultAsync(cancellationToken)
+                : null,
+            answerFeedback));
     }
 
     private static PlayerGameScreen ResolveScreen(

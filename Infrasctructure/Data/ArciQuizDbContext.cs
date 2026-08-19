@@ -36,6 +36,12 @@ public class ArciQuizDbContext : DbContext
             .HasIndex(r => new { r.PlayerId, r.MancheDomandaId })
             .IsUnique();
 
+        // SQLite garantisce che una sola partita possa essere selezionata come attiva.
+        modelBuilder.Entity<Partita>()
+            .HasIndex(p => p.IsAttiva)
+            .IsUnique()
+            .HasFilter("\"IsAttiva\" = 1");
+
         // relazioni
         modelBuilder.Entity<Player>()
             .HasOne(p => p.Partita)
@@ -85,4 +91,4 @@ public class ArciQuizDbContext : DbContext
             .HasForeignKey(r => r.MancheDomandaId)
             .OnDelete(DeleteBehavior.Cascade);
     }
-}
+}

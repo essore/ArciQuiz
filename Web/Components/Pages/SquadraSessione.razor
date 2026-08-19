@@ -51,10 +51,25 @@
                     <div class="answer-grid" aria-label="Opzioni di risposta">
                         @foreach (var option in _view.Options)
                         {
-                            <div class="answer-option"><strong>@option.Code</strong><span>@option.Text</span></div>
+                            <button class="answer-option @(_view.RecordedAnswer == option.Code ? "selected" : string.Empty)"
+                                    disabled="@(_view.RecordedAnswer.HasValue || _isSubmitting)"
+                                    @onclick="() => SubmitAnswerAsync(option.Code)">
+                                <strong>@option.Code</strong><span>@option.Text</span>
+                            </button>
                         }
                     </div>
-                    <p class="team-hint">La selezione e la conferma della risposta saranno abilitate nel prossimo passaggio.</p>
+                    @if (_view.RecordedAnswer.HasValue)
+                    {
+                        <p class="team-hint confirmation">Risposta @_view.RecordedAnswer confermata. Non può più essere modificata.</p>
+                    }
+                    else
+                    {
+                        <p class="team-hint">Tocca una risposta per confermarla. Non potrà più essere modificata.</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_answerMessage))
+                    {
+                        <p class="answer-message" role="alert">@_answerMessage</p>
+                    }
                 </section>
                 break;
 
@@ -70,7 +85,16 @@
                     <span class="team-eyebrow">Soluzione</span>
                     <h2>@_view.QuestionText</h2>
                     <p class="solution-answer">Risposta corretta: <strong>@_view.CorrectAnswer</strong></p>
-                    <p>Il risultato personale sarà disponibile con il calcolo del punteggio.</p>
+                    @if (_view.AnswerFeedback is null)
+                    {
+                        <p>Questa squadra è entrata dopo la chiusura della domanda.</p>
+                        <p>Variazione punti: <strong>0</strong></p>
+                    }
+                    else
+                    {
+                        <p>@GetFeedbackText(_view.AnswerFeedback.Outcome)</p>
+                        <p>Variazione punti: <strong>@FormatPointsChange(_view.AnswerFeedback.PointsChange)</strong></p>
+                    }
                 </section>
                 break;
 
@@ -102,6 +126,8 @@
     private PlayerGameView? _view;
     private bool _isLoading = true;
     private bool _sessioneSostituita;
+    private bool _isSubmitting;
+    private string? _answerMessage;
     private IDisposable? _subscription;
 
     // Recupera identità e vista dal server e ascolta soltanto notifiche della partita associata.
@@ -139,6 +165,44 @@
         _partitaId = result.View?.PartitaId;
         await InvokeAsync(StateHasChanged);
     }
+
+    private async Task SubmitAnswerAsync(char answer)
+    {
+        if (_isSubmitting || _view?.MancheDomandaId is not int mancheDomandaId || _view.RecordedAnswer.HasValue)
+            return;
+
+        _isSubmitting = true;
+        _answerMessage = null;
+        try
+        {
+            await using var database = await DbFactory.CreateDbContextAsync();
+            var result = await PlayerAnswerService.InviaAsync(
+                database,
+                _playerId,
+                _sessionToken,
+                _view.PartitaId,
+                mancheDomandaId,
+                answer,
+                Clock);
+            _sessioneSostituita = !result.SessionValid;
+            _answerMessage = result.Message;
+            await ReloadViewAsync();
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string GetFeedbackText(PlayerAnswerOutcome outcome) => outcome switch
+    {
+        PlayerAnswerOutcome.Correct => "Risposta corretta.",
+        PlayerAnswerOutcome.Incorrect => "Risposta errata.",
+        _ => "Risposta astenuta."
+    };
+
+    private static string FormatPointsChange(int pointsChange) =>
+        pointsChange > 0 ? $"+{pointsChange}" : pointsChange.ToString();
 
     public void Dispose() => _subscription?.Dispose();
 }

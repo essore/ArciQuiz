@@ -58,11 +58,8 @@ public static class PlayerSessionService
         var partita = partitaId.HasValue
             ? await db.Partite.FirstOrDefaultAsync(item => item.Id == partitaId.Value)
             : await db.Partite
-                .Where(item => item.Stato == Core.Enums.PartitaStato.Pronta
-                    || item.Stato == Core.Enums.PartitaStato.InCorso
-                    || item.Stato == Core.Enums.PartitaStato.Conclusa)
-                .OrderBy(item => item.Stato == Core.Enums.PartitaStato.Conclusa)
-                .ThenByDescending(item => item.DtCreazione)
+                .Where(item => item.IsAttiva
+                    && (item.Stato == Core.Enums.PartitaStato.Pronta || item.Stato == Core.Enums.PartitaStato.InCorso))
                 .FirstOrDefaultAsync();
         if (partita is null)
             return PlayerSessionOperationResult.Error("Non è disponibile una partita per l'accesso.");

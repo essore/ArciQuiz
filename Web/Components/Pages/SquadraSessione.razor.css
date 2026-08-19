@@ -75,7 +75,21 @@
     border: 2px solid #d5dce7;
     border-radius: 1rem;
     background: #fbfcfe;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
     font-size: 1.05rem;
+}
+
+.answer-option:disabled {
+    cursor: default;
+    opacity: .72;
+}
+
+.answer-option.selected {
+    border-color: #176236;
+    background: #eaf7ef;
 }
 
 .answer-option strong {
@@ -95,6 +109,11 @@
     margin-top: 1.25rem;
     color: #68758a;
     font-size: .9rem;
+}
+
+.confirmation, .answer-message {
+    color: #176236;
+    font-weight: 700;
 }
 
 .warning {

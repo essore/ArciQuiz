@@ -7,7 +7,9 @@
 @using Core.Entities
 @using Core.Enums
 @using Microsoft.EntityFrameworkCore
+@using Web.Services
 @inject IDbContextFactory<ArciQuizDbContext> DbFactory
+@inject NavigationManager Nav
 
 <PageTitle>ArciQuiz - Admin</PageTitle>
 
@@ -24,9 +26,6 @@
         Nessuna partita attiva al momento.
     </div>
 
-    <button class="btn btn-primary" @onclick="NuovaPartitaMock">
-        Crea nuova partita di prova
-    </button>
 }
 else
 {
@@ -46,9 +45,9 @@ else
             <button class="btn btn-success me-2" @onclick="@(() => VaiARegia(_partitaAttiva!.Id))">
                 Apri regia partita
             </button>
-            <button class="btn btn-secondary" disabled>
-                Apri vista proiettore (coming soon)
-            </button>
+            <a class="btn btn-secondary" href="@($"/proiettore/{_partitaAttiva.Id}")" target="_blank">
+                Apri vista proiettore
+            </a>
 
             @if (_partitaAttiva.Stato == PartitaStato.Pronta)
             {
@@ -62,23 +61,21 @@ else
 
 <hr />
 
-<h2>Azioni rapide</h2>
+@if (!string.IsNullOrWhiteSpace(_messaggio))
+{
+    <div class="alert alert-success">@_messaggio</div>
+}
+@if (!string.IsNullOrWhiteSpace(_errore))
+{
+    <div class="alert alert-danger">@_errore</div>
+}
 
-<div class="mb-3">
-    <button class="btn btn-outline-primary me-2" @onclick="VaiNuovaPartita">
-        Nuova partita!
-    </button>
-    <button class="btn btn-outline-secondary me-2" disabled>
-        Gestisci domande
-    </button>
-    <button class="btn btn-outline-secondary" @onclick="VaiAllePartiteDemo">
-        Elenco partite (demo)
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Partite</h2>
+    <button class="btn btn-primary" @onclick="VaiNuovaPartita">
+        Nuova partita
     </button>
 </div>
-
-<hr />
-
-<h2>Ultime partite</h2>
 
 @if (_ultimePartite is null)
 {
@@ -90,6 +87,7 @@ else if (!_ultimePartite.Any())
 }
 else
 {
+    <div class="table-responsive">
     <table class="table">
         <thead>
             <tr>
@@ -116,30 +114,48 @@ else
                                 @onclick="@(() => VaiAConfigPartita(p.Id))">
                             Configura
                         </button>
+                        <button class="btn btn-sm btn-outline-success ms-1"
+                                @onclick="@(() => VaiARegia(p.Id))">
+                            Regia
+                        </button>
+                        <a class="btn btn-sm btn-outline-secondary ms-1" href="@($"/proiettore/{p.Id}")" target="_blank">
+                            Proiettore
+                        </a>
+                        @if (!p.IsAttiva && p.Stato != PartitaStato.Conclusa)
+                        {
+                            <button class="btn btn-sm btn-primary ms-1"
+                                    @onclick="@(() => ImpostaPartitaAttivaAsync(p.Id))">
+                                Rendi attiva
+                            </button>
+                        }
                     </td>
                 </tr>
             }
         </tbody>
     </table>
+    </div>
 }
 
 @code {
     private Partita? _partitaAttiva;
     private List<Partita>? _ultimePartite;
-    [Inject] NavigationManager Nav { get; set; } = default!;
-
+    private string? _messaggio;
+    private string? _errore;
 
     protected override async Task OnInitializedAsync()
     {
+        await CaricaAsync();
+    }
+
+    private async Task CaricaAsync()
+    {
         await using var db = await DbFactory.CreateDbContextAsync();
 
-        // per ora consideriamo attiva "l'ultima non conclusa"
         _partitaAttiva = await db.Partite
             .AsNoTracking()
             .Include(p => p.Manches)
             .Include(p => p.PlayersPartita)
-            .Where(p => p.Stato != PartitaStato.Conclusa)
-            .OrderByDescending(p => p.DtCreazione)
+            .Where(p => p.IsAttiva)
             .FirstOrDefaultAsync();
 
         _ultimePartite = await db.Partite
@@ -154,28 +170,20 @@ else
     {
         Nav.NavigateTo($"/partita/{partitaId}");
     }
-    // per ora: crea una partita di prova veloce
-    private async Task NuovaPartitaMock()
+    private async Task ImpostaPartitaAttivaAsync(int partitaId)
     {
-        var p = new Partita
-        {
-            Titolo = "Nuova partita demo " + DateTime.Now.ToString("HH:mm")
-        };
-
+        _messaggio = null;
+        _errore = null;
         await using var db = await DbFactory.CreateDbContextAsync();
-        db.Partite.Add(p);
-        await db.SaveChangesAsync();
+        var result = await PartitaAttivaService.ImpostaAttivaAsync(db, partitaId);
+        if (result.IsSuccess)
+            _messaggio = result.Messaggio;
+        else
+            _errore = result.Messaggio;
 
-        // ricarica dati
-        await OnInitializedAsync();
-        StateHasChanged();
+        await CaricaAsync();
     }
 
-    private void VaiAllePartiteDemo()
-    {
-        // in un secondo momento useremo NavigationManager
-        // per ora puoi semplicemente andare manualmente a /partite-demo
-    }
     private void VaiARegia(int partitaId)
     {
         Nav.NavigateTo($"/regia/{partitaId}");

@@ -22,8 +22,7 @@ public static class SquadreService
         var partita = partitaId.HasValue
             ? await db.Partite.FirstOrDefaultAsync(item => item.Id == partitaId.Value)
             : await db.Partite
-                .Where(item => item.Stato == PartitaStato.Pronta)
-                .OrderByDescending(item => item.DtCreazione)
+                .Where(item => item.IsAttiva && item.Stato == PartitaStato.Pronta)
                 .FirstOrDefaultAsync();
 
         if (partita is null) return SquadraOperationResult.Error("Non è disponibile una partita in lobby per le iscrizioni.");

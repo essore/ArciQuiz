@@ -100,6 +100,9 @@ public static class PartitaStateMachineService
             : nowUtc.UtcDateTime;
         partita.Fase = GamePhase.ShowingAnswers;
         await database.SaveChangesAsync(cancellationToken);
+
+        await QuestionScoringService.CalcolaEPersistiAsync(database, mancheDomandaId, timeProvider, cancellationToken);
+
         return PartitaTransitionResult.ChangedResult("Domanda chiusa e soluzione disponibile.");
     }
 
@@ -144,9 +147,12 @@ public static class PartitaStateMachineService
             return PartitaTransitionResult.Error("La domanda successiva può iniziare solo dopo la soluzione.");
 
         var manche = partita.Manches.Single(item => item.Id == partita.CurrentMancheId.Value);
+        var domandaCorrente = FindQuestion(partita, mancheDomandaId);
         var domande = OrderedQuestions(manche);
-        var currentIndex = domande.FindIndex(item => item.Id == mancheDomandaId);
-        var domandaSuccessiva = currentIndex >= 0 ? domande.Skip(currentIndex + 1).FirstOrDefault() : null;
+        var domandaSuccessiva = domandaCorrente is null
+            ? null
+            : domande.FirstOrDefault(item => item.Index > domandaCorrente.Index
+                || (item.Index == domandaCorrente.Index && item.Id > domandaCorrente.Id));
         if (domandaSuccessiva is null)
             return PartitaTransitionResult.Error("Non ci sono altre domande: mostrare la classifica e concludere la manche.");
         if (!HasValidDuration(manche, domandaSuccessiva))
@@ -234,6 +240,7 @@ public static class PartitaStateMachineService
 
         partita.Stato = PartitaStato.Conclusa;
         partita.Fase = GamePhase.Closed;
+        partita.IsAttiva = false;
         partita.CurrentMancheId = null;
         partita.CurrentMancheDomandaId = null;
         partita.DtFineUtc = DateTime.UtcNow;

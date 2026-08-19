@@ -40,13 +40,13 @@ public class PlayerEntryServiceTests
     }
 
     [Fact]
-    public async Task ResolveAsync_ConcludedGameWithoutSession_RequiresLogin()
+    public async Task ResolveAsync_ConcludedGameWithoutSession_ReturnsNoGame()
     {
         await using var test = await TestDatabase.CreateAsync(PartitaStato.Conclusa);
 
         var result = await PlayerEntryService.ResolveAsync(test.Database, null, null);
 
-        Assert.Equal(PlayerEntryDestination.Login, result.Destination);
+        Assert.Equal(PlayerEntryDestination.NoGame, result.Destination);
     }
 
     [Fact]
@@ -146,7 +146,12 @@ public class PlayerEntryServiceTests
 
             if (stato.HasValue)
             {
-                var partita = new Partita { Titolo = "Ingresso test", Stato = stato.Value };
+                var partita = new Partita
+                {
+                    Titolo = "Ingresso test",
+                    Stato = stato.Value,
+                    IsAttiva = stato.Value != PartitaStato.Conclusa
+                };
                 database.Partite.Add(partita);
                 await database.SaveChangesAsync();
                 test.PartitaId = partita.Id;

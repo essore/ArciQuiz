@@ -109,6 +109,14 @@ else
                                 Concludi partita
                             </button>
 
+                            @if (_domandaCorrente?.DtEnd is not null && !_domandaCorrente.IsAnnullata)
+                            {
+                                <input class="form-control" @bind="_motivoAnnullamento" aria-label="Motivo annullamento domanda" />
+                                <button class="btn btn-outline-danger" @onclick="AnnullaDomandaAsync">
+                                    Annulla domanda e ricalcola
+                                </button>
+                            }
+
                             <button class="btn btn-dark" @onclick="ApriProiettore">
                                 Apri proiettore
                             </button>
@@ -212,6 +220,7 @@ else
 
     private string? _messaggio;
     private string? _errore;
+    private string _motivoAnnullamento = "Errore nella domanda.";
 
     private bool _puoStartare =>
         _partita?.Fase == GamePhase.Lobby
@@ -312,6 +321,17 @@ else
     {
         if (_domandaCorrente is null) return;
         await ExecuteTransitionAsync(db => PartitaStateMachineService.MostraClassificaAsync(db, PartitaId, _domandaCorrente.Id));
+    }
+
+    private async Task AnnullaDomandaAsync()
+    {
+        if (_domandaCorrente is null) return;
+        await ExecuteTransitionAsync(db => QuestionCancellationService.AnnullaAsync(
+            db,
+            PartitaId,
+            _domandaCorrente.Id,
+            _motivoAnnullamento,
+            Clock));
     }
 
     private async Task ChiudiMancheAsync()

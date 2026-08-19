@@ -116,7 +116,12 @@ public class SquadreServiceTests
             var options = new DbContextOptionsBuilder<ArciQuizDbContext>().UseSqlite($"Data Source={path}").Options;
             var database = new ArciQuizDbContext(options);
             await database.Database.MigrateAsync();
-            database.Partite.Add(new Partita { Titolo = "Partita test", Stato = stato });
+            database.Partite.Add(new Partita
+            {
+                Titolo = "Partita test",
+                Stato = stato,
+                IsAttiva = stato == PartitaStato.Pronta
+            });
             await database.SaveChangesAsync();
             return new TestDatabase(path, database) { Options = options };
         }

@@ -37,11 +37,8 @@ public static class PlayerEntryService
 
         var game = await database.Partite
             .AsNoTracking()
-            .Where(item => item.Stato == PartitaStato.Pronta
-                || item.Stato == PartitaStato.InCorso
-                || item.Stato == PartitaStato.Conclusa)
-            .OrderBy(item => item.Stato == PartitaStato.Conclusa)
-            .ThenByDescending(item => item.DtCreazione)
+            .Where(item => item.IsAttiva
+                && (item.Stato == PartitaStato.Pronta || item.Stato == PartitaStato.InCorso))
             .Select(item => new { item.Id, item.Stato })
             .FirstOrDefaultAsync(cancellationToken);
         if (game is null)

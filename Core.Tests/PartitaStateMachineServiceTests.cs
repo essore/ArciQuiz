@@ -37,6 +37,7 @@ public class PartitaStateMachineServiceTests
         var partita = await test.Database.Partite.SingleAsync();
         Assert.Equal(PartitaStato.Conclusa, partita.Stato);
         Assert.Equal(GamePhase.Closed, partita.Fase);
+        Assert.False(partita.IsAttiva);
         Assert.NotNull(partita.DtFineUtc);
     }
 
@@ -160,7 +161,7 @@ public class PartitaStateMachineServiceTests
             var database = new ArciQuizDbContext(options);
             await database.Database.MigrateAsync();
 
-            var partita = new Partita { Titolo = "Partita test", Stato = PartitaStato.Pronta, Fase = GamePhase.Lobby };
+            var partita = new Partita { Titolo = "Partita test", Stato = PartitaStato.Pronta, Fase = GamePhase.Lobby, IsAttiva = true };
             var primaManche = new Manche { Partita = partita, Ordine = 1, Stato = MancheStato.Pronta };
             var secondaManche = new Manche { Partita = partita, Ordine = 2, Stato = MancheStato.Pronta };
             var primaDomanda = CreateQuestion(primaManche, 1, "Prima domanda");

@@ -57,6 +57,19 @@ nuova versione, conservarne una copia con gli eventuali file `-wal` e `-shm`.
 Il nuovo database viene creato separatamente nella cartella dati stabile; la
 reimportazione dei dati del prototipo non è ancora supportata.
 
+## Riprendere una partita dopo un riavvio
+
+1. Arrestare e riavviare normalmente l'applicazione, senza eliminare o copiare
+   parzialmente i file nella cartella `%LocalAppData%\ArciQuiz`.
+2. Accedere di nuovo alla regia e riaprire la partita: fase, manche, domanda
+   corrente, risposte e punteggi vengono ricostruiti dal database.
+3. Se la domanda era ancora entro la scadenza, il countdown riprende con il
+   tempo residuo; se era già scaduta, il server la chiude e registra punteggi e
+   astensioni una sola volta.
+4. Le squadre possono aggiornare la pagina sullo stesso dispositivo: la
+   sessione persistita resta valida e mostra la fase corrente. Verificare la
+   classifica prima di proseguire con il comando successivo della regia.
+
 ## Credenziale amministrativa locale
 
 Prima di avviare l'applicazione, copiare `Web/appsettings.Local.example.json` in

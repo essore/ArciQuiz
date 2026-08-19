@@ -41,11 +41,67 @@ public class PlayerGameViewServiceTests
     public async Task LoadAsync_ShowingAnswers_ExposesSolution()
     {
         await using var test = await TestDatabase.CreateAsync(GamePhase.ShowingAnswers, NowUtc);
+        test.Database.ManchesRisposte.Add(new MancheRispostaRicevuta
+        {
+            PlayerId = test.PlayerId,
+            MancheDomandaId = test.QuestionId,
+            Risposta = 'B',
+            IsCorrect = true,
+            PuntiAssegnati = 1500
+        });
+        await test.Database.SaveChangesAsync();
 
         var result = await PlayerGameViewService.LoadAsync(test.Database, test.PlayerId, test.SessionToken, new FixedTimeProvider(NowUtc));
 
         Assert.Equal(PlayerGameScreen.Solution, result.View!.Screen);
         Assert.Equal('B', result.View.CorrectAnswer);
+        Assert.Equal(new PlayerAnswerFeedback(PlayerAnswerOutcome.Correct, 1500), result.View.AnswerFeedback);
+    }
+
+    [Theory]
+    [InlineData('A', false, false, -500, PlayerAnswerOutcome.Incorrect)]
+    [InlineData('\0', true, false, 0, PlayerAnswerOutcome.Abstained)]
+    public async Task LoadAsync_ShowingAnswers_ShowsPersonalFeedback(
+        char answer,
+        bool isAbstained,
+        bool isCorrect,
+        int pointsChange,
+        PlayerAnswerOutcome expectedOutcome)
+    {
+        await using var test = await TestDatabase.CreateAsync(GamePhase.ShowingAnswers, NowUtc);
+        test.Database.ManchesRisposte.Add(new MancheRispostaRicevuta
+        {
+            PlayerId = test.PlayerId,
+            MancheDomandaId = test.QuestionId,
+            Risposta = answer == '\0' ? null : answer,
+            IsAstenuto = isAbstained,
+            IsCorrect = isCorrect,
+            PuntiAssegnati = pointsChange
+        });
+        await test.Database.SaveChangesAsync();
+
+        var result = await PlayerGameViewService.LoadAsync(test.Database, test.PlayerId, test.SessionToken, new FixedTimeProvider(NowUtc));
+
+        Assert.Equal(new PlayerAnswerFeedback(expectedOutcome, pointsChange), result.View!.AnswerFeedback);
+    }
+
+    [Fact]
+    public async Task LoadAsync_ShowingAnswers_LateRegisteredTeamHasNoQuestionResult()
+    {
+        await using var test = await TestDatabase.CreateAsync(GamePhase.ShowingAnswers, NowUtc);
+
+        var result = await PlayerGameViewService.LoadAsync(test.Database, test.PlayerId, test.SessionToken, new FixedTimeProvider(NowUtc));
+
+        Assert.Equal(PlayerGameScreen.Solution, result.View!.Screen);
+        Assert.Null(result.View.AnswerFeedback);
+    }
+
+    [Fact]
+    public void CreateAnswerDistribution_CountsOnlySupportedOptions()
+    {
+        var distribution = ProjectorAnswerDistributionService.Create(['A', 'b', 'B', 'C', 'D', 'D', 'X']);
+
+        Assert.Equal(new ProjectorAnswerDistribution(1, 2, 1, 2), distribution);
     }
 
     [Theory]
@@ -102,6 +158,7 @@ public class PlayerGameViewServiceTests
 
         public ArciQuizDbContext Database { get; }
         public int PlayerId { get; private set; }
+        public int QuestionId { get; private set; }
         public string SessionToken { get; } = "sessione-corrente";
 
         public static async Task<TestDatabase> CreateAsync(
@@ -152,6 +209,7 @@ public class PlayerGameViewServiceTests
             game.CurrentMancheDomandaId = question.Id;
             await database.SaveChangesAsync();
             test.PlayerId = player.Id;
+            test.QuestionId = question.Id;
             return test;
         }
 

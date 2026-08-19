@@ -11,6 +11,194 @@ Ogni voce deve indicare:
 - verifiche realmente eseguite;
 - rischi, assunzioni o blocchi.
 
+## 2026-08-19 - AQ-045 Semplificare menu e layout della dashboard admin
+
+- Task: AQ-045.
+- Risultato:
+  - rimossi dalla dashboard i collegamenti rapidi prototipali a gestione domande ed elenco partite;
+  - posizionato `Nuova partita` nell'intestazione dell'elenco, visibile direttamente e adattato ai viewport stretti tramite contenitore responsive;
+  - mantenuta la voce `Gestione domande` nel menu laterale amministrativo, protetto come le altre route admin;
+  - AQ-045 concluso e AQ-046 promosso a `READY`.
+- File principali: `Web/Components/Pages/AdminHome.razor`, `Web/Components/Layout/NavMenu.razor`, `docs/TODO.md`.
+- Verifiche:
+  - `rg -n "Gestisci domande|Elenco partite|Nuova partita|Partite" Web\Components\Pages\AdminHome.razor Web\Components\Layout\NavMenu.razor`: confermate rimozione dalla dashboard e presenza della navigazione amministrativa;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi noti;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 99 test superati alla seconda esecuzione; la prima ha avuto un errore intermittente di handle SQLite nel test concorrente preesistente delle risposte.
+- Rischi residui:
+  - lo smoke a larghezza desktop e ridotta va ripetuto con un'istanza locale in ascolto; il connettore browser non ha trovato un'applicazione disponibile su `127.0.0.1:5000`.
+
+---
+
+## 2026-08-19 - Chiarimento layout dashboard admin
+
+- Task: correzione del criterio di `AQ-045` su richiesta del proprietario.
+- Risultato:
+  - il collegamento rapido `Gestisci domande` viene rimosso dalla pagina dashboard;
+  - la voce resta nel menu di navigazione admin.
+- File principali: `docs/TODO.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - verificata la modifica del solo criterio relativo a `Gestisci domande`.
+- Rischi, assunzioni o blocchi:
+  - nessuno; la pagina e le funzioni del catalogo restano disponibili.
+
+## 2026-08-19 - Pianificazione clonazione partita
+
+- Task: aggiornamento della coda su richiesta del proprietario.
+- Risultato:
+  - aggiunto `AQ-051` per clonare la configurazione completa di una partita senza ereditare squadre, risposte, punteggi o stato runtime;
+  - collegato `AQ-051` alla conclusione della nuova sequenza di pulizia funzionale, prima della pulizia tecnica `AQ-041`.
+- File principali: `docs/TODO.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - controllata la coda esistente e preservato `AQ-045` come unico task `READY`;
+  - verificato che la clonazione prevista non attivi automaticamente la nuova partita.
+- Rischi, assunzioni o blocchi:
+  - la clonazione riusa le domande del catalogo tramite associazioni; non crea copie delle entità `Domanda`.
+
+## 2026-08-19 - AQ-044 Gestire partita attiva, storico e navigazione admin
+
+- Task: AQ-044.
+- Risultato:
+  - aggiunta la selezione persistita `IsAttiva` con indice SQLite filtrato che consente una sola partita attiva;
+  - l'admin può rendere attiva una partita non conclusa dall'elenco, aprire la regia e il proiettore della partita specifica e consultare lo storico senza cancellazioni;
+  - ingresso pubblico, iscrizione e login senza identificativo esplicito usano solo la partita attiva;
+  - la conclusione dalla regia disattiva la partita e il servizio rifiuta di riattivare una partita conclusa;
+  - AQ-044 concluso e AQ-045 promosso a `READY`.
+- File principali: `Core/Entities/Partita.cs`, `Infrasctructure/Migrations/20260819151955_AddActiveGame.cs`, `Web/Services/PartitaAttivaService.cs`, `Web/Components/Pages/AdminHome.razor`, `Core.Tests/PartitaAttivaServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-build --no-restore --filter "FullyQualifiedName~SquadreServiceTests|FullyQualifiedName~PartitaAttivaServiceTests|FullyQualifiedName~PlayerEntryServiceTests|FullyQualifiedName~PartitaStateMachineServiceTests"`: 27 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 99 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi noti;
+  - `dotnet tool run dotnet-ef migrations has-pending-model-changes --project Infrasctructure\Infrasctructure.csproj --startup-project Web\Web.csproj --no-build`: nessuna modifica pendente al modello.
+- Rischi residui:
+  - lo smoke interattivo di dashboard, regia e proiettore va ripetuto con un'istanza locale in ascolto; il connettore browser non ha trovato un'applicazione disponibile su `127.0.0.1:5000`.
+
+---
+
+## 2026-08-19 - Pianificazione pulizia funzionale prima della distribuzione
+
+- Task: aggiornamento della coda su richiesta del proprietario.
+- Risultato:
+  - aggiunti task per partita attiva/storico e navigazione admin, dashboard, contatore domande, associazioni duplicate, regia e proiettore;
+  - `AQ-044` promosso a `READY` e `AQ-041` spostato dopo la nuova sequenza;
+  - mantenuta la conservazione dello storico prevista dal prodotto: la conclusione è pianificata, la cancellazione definitiva resta da decidere separatamente.
+- File principali: `docs/TODO.md`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - controllato `git status --short` prima delle modifiche;
+  - verificata la presenza di un solo task `READY` nella coda.
+- Rischi, assunzioni o blocchi:
+  - il significato operativo di cancellazione definitiva delle partite non è stato introdotto perché in conflitto con la conservazione dello storico richiesta dal prodotto.
+
+## 2026-08-19 - AQ-040 Verificare recupero completo dopo riavvio
+
+- Task: AQ-040.
+- Risultato:
+  - aggiunta una suite d'integrazione che arresta e riapre il `DbContext` sullo stesso database SQLite per lobby, domanda aperta, domanda scaduta, soluzione e fine manche;
+  - verificati il tempo residuo, la chiusura idempotente della domanda scaduta con due sole astensioni attese, le sessioni squadra e la classifica persistita;
+  - documentata nel README la procedura manuale di ripresa della partita;
+  - AQ-040 concluso e AQ-041 promosso a `READY`.
+- File principali: `Core.Tests/RestartRecoveryTests.cs`, `README.md`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-build --no-restore --filter FullyQualifiedName~RestartRecoveryTests`: 5 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 97 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi noti.
+- Rischi residui:
+  - il test simula l'arresto e il riavvio chiudendo e riaprendo il contesto SQLite; resta da effettuare uno smoke interattivo quando il connettore browser sarà disponibile.
+
+---
+
+## 2026-08-19 - AQ-036 Annullare una domanda e ricalcolare
+
+- Task: AQ-036.
+- Risultato:
+  - aggiunto il comando server-side per annullare una singola domanda già chiusa, con motivo e timestamp persistiti;
+  - neutralizzate le risposte dell'occorrenza e segnalata la domanda catalogo con `FlagErrore`;
+  - ricalcolate le domande successive della manche, così che astensioni gratuite, malus e classifica derivata restino coerenti;
+  - corretto il passaggio alla domanda successiva quando quella corrente è stata annullata;
+  - AQ-036 concluso e AQ-040 promosso a `READY`.
+- File principali: `Web/Services/QuestionCancellationService.cs`, `Web/Services/PartitaStateMachineService.cs`, `Web/Components/Pages/RegiaPartita.razor`, `Core.Tests/QuestionCancellationServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~QuestionCancellationServiceTests`: 2 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 92 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi noti.
+- Rischi residui:
+  - lo smoke interattivo della regia va ripetuto quando il connettore browser sarà disponibile.
+
+---
+
+## 2026-08-19 - AQ-035 Implementare classifiche e podio
+
+- Task: AQ-035.
+- Risultato:
+  - aggiunto `LeaderboardService`, che ricostruisce i punteggi da `MancheRispostaRicevuta`, includendo anche le squadre senza risposte ed escludendo risposte e occorrenze annullate;
+  - ordinamento per punti decrescenti, parità ex aequo e posizione successiva coerente;
+  - il proiettore mostra classifiche parziali, di fine manche e finale, con podio delle posizioni dalla prima alla terza;
+  - AQ-035 concluso e AQ-036 promosso a `READY`.
+- File principali: `Web/Services/LeaderboardService.cs`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Core.Tests/LeaderboardServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~LeaderboardServiceTests`: 2 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 90 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi noti.
+- Rischi residui:
+  - lo smoke visivo del proiettore va ripetuto quando il connettore browser sarà disponibile.
+
+---
+
+## 2026-08-19 - AQ-034 Mostrare soluzione e distribuzione risposte
+
+- Task: AQ-034.
+- Risultato:
+  - il proiettore visualizza soluzione e conteggi aggregati A/B/C/D soltanto nella fase persistita `ShowingAnswers`;
+  - il telefono mostra l'esito personale corretto, errato o astenuto e la variazione punti già calcolata e persistita;
+  - una squadra registrata dopo la chiusura riceve un messaggio di mancata partecipazione e variazione nulla, senza creare retroattivamente una risposta;
+  - AQ-034 concluso e AQ-035 promosso a `READY`.
+- File principali: `Web/Services/ProjectorAnswerDistributionService.cs`, `Web/Services/PlayerGameViewService.cs`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Web/Components/Pages/SquadraSessione.razor`, `Core.Tests/PlayerGameViewServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PlayerGameViewServiceTests`: 12 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 88 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi noti;
+  - avvio isolato con database temporaneo in `artifacts/` riuscito.
+- Rischi residui:
+  - lo smoke visivo multi-client va ripetuto quando il connettore browser sarà disponibile; il suo runtime non riesce a risolvere una dipendenza attendibile sul percorso Windows.
+
+---
+
+## 2026-08-19 - AQ-033 Calcolare punteggio e astensioni
+
+- Task: AQ-033.
+- Risultato:
+  - implementata la logica deterministica di calcolo del punteggio e registrazione automatica delle astensioni (`QuestionScoringService`);
+  - il coefficiente di velocità varia da 1.0 (risposta immediata) a 0.5 (allo scadere del timer) e viene arrotondato con `AwayFromZero`;
+  - applicati i moltiplicatori di manche e di domanda a punti e malus;
+  - alla chiusura della domanda (manuale o da timer) vengono registrate automaticamente le astensioni per le squadre senza risposta;
+  - le astensioni sono gratuite fino alla soglia `MaxAstensioni` di manche, dopodiché comportano il medesimo malus delle risposte errate;
+  - il calcolo è deterministico e idempotente.
+- File principali: `Web/Services/QuestionScoringService.cs`, `Web/Services/PartitaStateMachineService.cs`, `Web/Services/GameTimerService.cs`, `Core.Tests/QuestionScoringServiceTests.cs`, `Core.Tests/PlayerAnswerServiceTests.cs`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 84 test superati (0 errori);
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori.
+- Rischi residui:
+  - avvisi NuGet noti su dipendenze e audit non raggiungibile.
+
+---
+
+## 2026-08-18 - AQ-032 Implementare il client squadra e l'invio risposta
+
+- Task: AQ-032.
+- Risultato:
+  - aggiunto il servizio server-side di registrazione della prima risposta A/B/C/D, con verifica di sessione esclusiva, domanda corrente e scadenza;
+  - il vincolo univoco già presente viene gestito come conferma idempotente durante invii concorrenti o retry;
+  - la vista squadra riceve solo il proprio codice di risposta già registrato e non espone la soluzione durante la domanda;
+  - la shell mobile usa pulsanti leggibili, disabilita le alternative dopo la conferma e mostra lo stato della risposta immutabile.
+- File principali: `Web/Services/PlayerAnswerService.cs`, `Web/Services/PlayerGameViewService.cs`, `Web/Components/Pages/SquadraSessione.razor`, `Web/Components/Pages/SquadraSessione.razor.css`, `Core.Tests/PlayerAnswerServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PlayerAnswerServiceTests`: 5 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 68 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 3 avvisi noti;
+  - avvio locale dell'app riuscito; markup e CSS della shell verificati a layout mobile. Il connettore browser non ha completato lo smoke interattivo per un errore del runtime del plugin.
+- Rischi residui:
+  - restano gli avvisi NuGet noti (dipendenza SQLite vulnerabile e audit non raggiungibile);
+  - la verifica visiva interattiva con browser va ripetuta quando il connettore sarà disponibile.
+
 ---
 
 ## 2026-08-18 - Semplificare l'apertura del proiettore dalla regia

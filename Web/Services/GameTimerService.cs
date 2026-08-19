@@ -38,7 +38,17 @@ public static class GameTimerService
         }
 
         if (changedPartitaIds.Count > 0)
+        {
             await database.SaveChangesAsync(cancellationToken);
+
+            foreach (var partita in partite)
+            {
+                if (partita.CurrentMancheDomandaId.HasValue && changedPartitaIds.Contains(partita.Id))
+                {
+                    await QuestionScoringService.CalcolaEPersistiAsync(database, partita.CurrentMancheDomandaId.Value, timeProvider, cancellationToken);
+                }
+            }
+        }
 
         return changedPartitaIds;
     }
