@@ -4,6 +4,7 @@
 @using Core.Entities
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
+@using Web.Services
 @inject IDbContextFactory<ArciQuizDbContext> DbFactory
 @inject NavigationManager Nav
 
@@ -21,7 +22,7 @@ else if (_manche is null)
 }
 else
 {
-    <h1>Domande della manche @(_manche.Id)</h1>
+    <h1>Domande della manche</h1>
 
     <p>
         Partita: <strong>@_manche.Partita?.Titolo</strong>
@@ -133,7 +134,6 @@ else
                 <table class="table table-sm">
                     <thead>
                         <tr>
-                            <th>Id</th>
                             <th>Categoria</th>
                             <th>Difficoltà</th>
                             <th>Domanda</th>
@@ -144,7 +144,6 @@ else
                         @foreach (var d in _domandeDisponibiliFiltrate!)
                         {
                             <tr>
-                                <td>@d.Id</td>
                                 <td>@d.Categoria</td>
                                 <td>@d.Difficolta</td>
                                 <td>@d.Testo</td>
@@ -169,6 +168,7 @@ else
     private Manche? _manche;
     private List<MancheDomanda> _domandeManche = new();
     private List<Domanda> _tutteDomande = new();
+    private HashSet<int> _domandeGiaAssociateNellaPartita = [];
     private IEnumerable<Domanda>? _domandeDisponibiliFiltrate;
     private string _filtro = string.Empty;
 
@@ -195,22 +195,22 @@ else
         {
             _domandeManche = _manche.Domande.OrderBy(md => md.Index).ToList();
 
-            // domande non ancora presenti nella manche
-            var idsInManche = _domandeManche
-                .Where(md => md.DomandaId.HasValue)
+            _domandeGiaAssociateNellaPartita = await db.ManchesDomande
+                .Where(md => md.Manche!.PartitaId == _manche.PartitaId && md.DomandaId.HasValue)
                 .Select(md => md.DomandaId!.Value)
-                .ToHashSet();
+                .ToHashSetAsync();
 
             _tutteDomande = await db.Domande
                 .AsNoTracking()
                 .ToListAsync();
             _domandeDisponibiliFiltrate = _tutteDomande
-                .Where(d => !idsInManche.Contains(d.Id))
+                .Where(d => !_domandeGiaAssociateNellaPartita.Contains(d.Id))
                 .ToList();
         }
         else
         {
             _domandeManche = new List<MancheDomanda>();
+            _domandeGiaAssociateNellaPartita = [];
             _domandeDisponibiliFiltrate = Enumerable.Empty<Domanda>();
         }
 
@@ -221,21 +221,18 @@ else
     {
         if (_manche is null) return;
 
-        var maxIndex = _domandeManche.Any() ? _domandeManche.Max(md => md.Index) : 0;
-
-        var md = new MancheDomanda
-        {
-            MancheId = _manche.Id,
-            DomandaId = domandaId,
-            Index = maxIndex + 1,
-            ModificatorePunti = 1
-        };
-
+        _errore = null;
+        _messaggio = null;
         await using var db = await DbFactory.CreateDbContextAsync();
-        db.ManchesDomande.Add(md);
-        await db.SaveChangesAsync();
+        var result = await MancheDomandaAssociationService.AggiungiAsync(db, _manche.Id, domandaId);
+        if (!result.IsSuccess)
+        {
+            _errore = result.Messaggio;
+            return;
+        }
 
         await OnParametersSetAsync();
+        _messaggio = result.Messaggio;
         StateHasChanged();
     }
 
@@ -343,12 +340,7 @@ else
     {
         if (_tutteDomande is null) return;
 
-        var idsInManche = _domandeManche
-            .Where(md => md.DomandaId.HasValue)
-            .Select(md => md.DomandaId!.Value)
-            .ToHashSet();
-
-        var query = _tutteDomande.Where(d => !idsInManche.Contains(d.Id));
+        var query = _tutteDomande.Where(d => !_domandeGiaAssociateNellaPartita.Contains(d.Id));
 
         if (!string.IsNullOrWhiteSpace(_filtro))
         {

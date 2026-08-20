@@ -15,7 +15,7 @@
 
 <hr />
 
-<h2>@(_domandaInEditing is null ? "Nuova domanda" : $"Modifica domanda #{_domandaInEditing.Id}")</h2>
+<h2>@(_domandaInEditing is null ? "Nuova domanda" : "Modifica domanda")</h2>
 
 <div class="row">
     <div class="col-md-6">
@@ -131,7 +131,6 @@ else
     <table class="table table-sm">
         <thead>
             <tr>
-                <th>Id</th>
                 <th>Categoria</th>
                 <th>Difficoltà</th>
                 <th>Domanda</th>
@@ -145,7 +144,6 @@ else
             @foreach (var d in _domandeFiltrate.OrderBy(d => d.Id))
             {
                 <tr class="@GetRowClass(d)">
-                    <td>@d.Id</td>
                     <td>@d.Categoria</td>
                     <td>@d.Difficolta</td>
                     <td>@d.Testo</td>

@@ -10,7 +10,6 @@
 @inject NavigationManager Nav
 @inject IGameStateService GameState
 @inject TimeProvider Clock
-@inject IJSRuntime JS
 
 <PageTitle>Regia partita</PageTitle>
 
@@ -26,186 +25,105 @@ else if (_partita is null)
 }
 else
 {
-    <h1>Regia della partita:  @_partita.Titolo</h1>
+    <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+        <h1 class="mb-0">Regia della partita: @_partita.Titolo</h1>
+        <a class="btn btn-dark flex-shrink-0" href="@($"/proiettore/{PartitaId}")" target="_blank" aria-label="Apri il proiettore della partita">
+            <span aria-hidden="true">▣</span> Apri proiettore
+        </a>
+    </div>
 
-    <div class="mb-3">
+    <div class="mb-4">
         <button class="btn btn-secondary" @onclick="TornaAllAdmin">
             &larr; Torna al pannello admin
         </button>
     </div>
 
-
-    <div class="row">
-        <div class="col-md-4">
-            <h2>Info partita</h2>
-            <p>
-                Stato: @_partita.Stato<br />
-                Creata il @_partita.DtCreazione.ToLocalTime():g<br />
-                Manches: @_partita.Manches.Count
-            </p>
-
-            <div class="mb-3">
-                <label class="form-label">Manche</label>
-
-                <select class="form-select"
-                        value="@_mancheSelezionataId"
-                        @onchange="OnMancheChanged">
-                    <option value="">-- Seleziona manche --</option>
-
-                    @foreach (var m in _partita.Manches.OrderBy(m => m.Id))
-                    {
-                        <option value="@m.Id.ToString()">
-                            Manche @m.Ordine (@m.Stato) - Domande: @m.Domande.Count
-                        </option>
-                    }
-                </select>
+    <section class="card mb-3">
+        <div class="card-body">
+            <h2 class="h4">Partita</h2>
+            <p class="mb-3">Stato: <strong>@_partita.Stato</strong> · Creata il @_partita.DtCreazione.ToLocalTime():g · Manche: @_partita.Manches.Count</p>
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-primary" @onclick="AvviaPartitaAsync" disabled="@(_partita.Fase != GamePhase.Lobby)" aria-label="Avvia partita">
+                    <span aria-hidden="true">▶</span> Avvia partita
+                </button>
+                <button class="btn btn-danger" @onclick="ConcludiPartitaAsync" disabled="@(_partita.Fase != GamePhase.RoundEnded || _haMancheSuccessiva)" aria-label="Concludi partita">
+                    <span aria-hidden="true">■</span> Concludi partita
+                </button>
             </div>
-
-            @if (_mancheCorrente is not null)
-            {
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Stato manche @(_mancheCorrente.Ordine)</h5>
-                        <p class="card-text">
-                            Stato: <strong>@_mancheCorrente.Stato</strong><br />
-                            Domande totali: @_mancheCorrente.Domande.Count<br />
-                            Domanda corrente: @(_domandaCorrente is null ? "—" : _domandaCorrente.Index.ToString())
-                        </p>
-
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-primary"
-                                    @onclick="StartMancheAsync"
-                                    disabled="@(!_puoStartare)">
-                                @(_partita.Fase == GamePhase.Lobby ? "Avvia partita" : "Avvia manche successiva")
-                            </button>
-
-                            <button class="btn btn-warning"
-                                    @onclick="ChiudiDomandaAsync"
-                                    disabled="@(_partita.Fase != GamePhase.ShowingQuestion)">
-                                Chiudi domanda e mostra soluzione
-                            </button>
-
-                            <button class="btn btn-info"
-                                    @onclick="MostraClassificaAsync"
-                                    disabled="@(_partita.Fase != GamePhase.ShowingAnswers)">
-                                Mostra classifica
-                            </button>
-
-                            <button class="btn btn-success"
-                                    @onclick="ProssimaDomandaAsync"
-                                    disabled="@(!_puoPassareProssima)">
-                                Prossima domanda
-                            </button>
-
-                            <button class="btn btn-secondary"
-                                    @onclick="ChiudiMancheAsync"
-                                    disabled="@(_partita.Fase != GamePhase.Leaderboard || _haDomandaSuccessiva)">
-                                Concludi manche
-                            </button>
-
-                            <button class="btn btn-danger"
-                                    @onclick="ConcludiPartitaAsync"
-                                    disabled="@(_partita.Fase != GamePhase.RoundEnded || _haMancheSuccessiva)">
-                                Concludi partita
-                            </button>
-
-                            @if (_domandaCorrente?.DtEnd is not null && !_domandaCorrente.IsAnnullata)
-                            {
-                                <input class="form-control" @bind="_motivoAnnullamento" aria-label="Motivo annullamento domanda" />
-                                <button class="btn btn-outline-danger" @onclick="AnnullaDomandaAsync">
-                                    Annulla domanda e ricalcola
-                                </button>
-                            }
-
-                            <button class="btn btn-dark" @onclick="ApriProiettore">
-                                Apri proiettore
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <p>Seleziona una manche per iniziare la regia.</p>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(_messaggio))
-            {
-                <div class="alert alert-success mt-3">@_messaggio</div>
-            }
-            @if (!string.IsNullOrWhiteSpace(_errore))
-            {
-                <div class="alert alert-danger mt-3">@_errore</div>
-            }
         </div>
+    </section>
 
-        <div class="col-md-8">
-            <h2>Domande della manche</h2>
-
+    <section class="card mb-3">
+        <div class="card-body">
+            <h2 class="h4">Manche</h2>
             @if (_mancheCorrente is null)
             {
-                <p>Seleziona una manche per vedere le domande.</p>
-            }
-            else if (!_mancheCorrente.Domande.Any())
-            {
-                <p>Nessuna domanda associata a questa manche.</p>
+                <p class="mb-0">Nessuna manche disponibile per questa partita.</p>
             }
             else
             {
-                <p> ci sono @_mancheCorrente.Domande.Count() domande nella manche</p>
-                @* <table class="table table-sm align-middle">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Stato</th>
-                            <th>Domanda</th>
-                            <th>Categoria</th>
-                            <th>Difficoltà</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var md in _mancheCorrente.Domande.OrderBy(md => md.Index))
-                        {
-                            var isCorrente = _domandaCorrente is not null && md.Id == _domandaCorrente.Id;
-                            <tr class="@(isCorrente ? "table-info" : string.Empty)">
-                                <td>@md.Index</td>
-                                <td>@GetStatoDomanda(md)</td>
-                                <td>
-                                    <strong>@md.Domanda?.Testo</strong><br />
-                                    A: @md.Domanda?.RispostaA<br />
-                                    B: @md.Domanda?.RispostaB<br />
-                                    C: @md.Domanda?.RispostaC<br />
-                                    D: @md.Domanda?.RispostaD
-                                </td>
-                                <td>@md.Domanda?.Categoria</td>
-                                <td>@md.Domanda?.Difficolta</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table> *@
-            }
-
-            @if (_domandaCorrente is not null)
-            {
-                <hr />
-                <h2>Domanda corrente</h2>
-                <div class="card">
-                    <div class="card-body">
-                        <h4>@_domandaCorrente.Domanda?.Testo</h4>
-                        <p>
-                            A) @_domandaCorrente.Domanda?.RispostaA<br />
-                            B) @_domandaCorrente.Domanda?.RispostaB<br />
-                            C) @_domandaCorrente.Domanda?.RispostaC<br />
-                            D) @_domandaCorrente.Domanda?.RispostaD
-                        </p>
-                        <p class="text-muted">
-                            (Per ora risposta corretta solo visibile qui: @_domandaCorrente.Domanda?.RispostaEsatta)
-                        </p>
-                    </div>
+                <p class="mb-3">Manche @_mancheCorrente.Ordine · Stato: <strong>@_mancheCorrente.Stato</strong> · Domande: @_mancheCorrente.Domande.Count</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-success" @onclick="AvviaMancheSuccessivaAsync" disabled="@(_partita.Fase != GamePhase.RoundEnded || !_haMancheSuccessiva)" aria-label="Avvia manche successiva">
+                        <span aria-hidden="true">▶</span> Avvia manche successiva
+                    </button>
+                    <button class="btn btn-secondary" @onclick="ChiudiMancheAsync" disabled="@(_partita.Fase != GamePhase.Leaderboard || _haDomandaSuccessiva)" aria-label="Concludi manche">
+                        <span aria-hidden="true">■</span> Concludi manche
+                    </button>
                 </div>
             }
         </div>
-    </div>
+    </section>
+
+    <section class="card mb-3">
+        <div class="card-body">
+            <h2 class="h4">Domanda</h2>
+            @if (_domandaCorrente is null)
+            {
+                <p class="mb-0">Nessuna domanda aperta.</p>
+            }
+            else
+            {
+                <h3 class="h5">Domanda @_domandaCorrente.Index</h3>
+                <p>@_domandaCorrente.Domanda?.Testo</p>
+                <p class="mb-3">
+                    A) @_domandaCorrente.Domanda?.RispostaA<br />
+                    B) @_domandaCorrente.Domanda?.RispostaB<br />
+                    C) @_domandaCorrente.Domanda?.RispostaC<br />
+                    D) @_domandaCorrente.Domanda?.RispostaD
+                </p>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button class="btn btn-warning" @onclick="ChiudiDomandaAsync" disabled="@(_partita.Fase != GamePhase.ShowingQuestion)" aria-label="Chiudi domanda e mostra soluzione">
+                        <span aria-hidden="true">■</span> Chiudi domanda e mostra soluzione
+                    </button>
+                    <button class="btn btn-info" @onclick="MostraClassificaAsync" disabled="@(_partita.Fase != GamePhase.ShowingAnswers)" aria-label="Mostra classifica">
+                        <span aria-hidden="true">▤</span> Mostra classifica
+                    </button>
+                    <button class="btn btn-success" @onclick="ProssimaDomandaAsync" disabled="@(!_puoPassareProssima)" aria-label="Apri domanda successiva">
+                        <span aria-hidden="true">▶</span> Prossima domanda
+                    </button>
+                </div>
+                @if (_domandaCorrente.DtEnd is not null && !_domandaCorrente.IsAnnullata)
+                {
+                    <div class="d-flex flex-wrap gap-2">
+                        <input class="form-control" style="max-width: 28rem" @bind="_motivoAnnullamento" aria-label="Motivo annullamento domanda" />
+                        <button class="btn btn-outline-danger" @onclick="AnnullaDomandaAsync" aria-label="Annulla domanda e ricalcola">
+                            <span aria-hidden="true">↶</span> Annulla domanda e ricalcola
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(_messaggio))
+    {
+        <div class="alert alert-success">@_messaggio</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(_errore))
+    {
+        <div class="alert alert-danger">@_errore</div>
+    }
 }
 
 @code {
@@ -216,15 +134,9 @@ else
     private MancheDomanda? _domandaCorrente;
 
     private bool _isLoading = true;
-    private string? _mancheSelezionataId;
-
     private string? _messaggio;
     private string? _errore;
     private string _motivoAnnullamento = "Errore nella domanda.";
-
-    private bool _puoStartare =>
-        _partita?.Fase == GamePhase.Lobby
-        || (_partita?.Fase == GamePhase.RoundEnded && _haMancheSuccessiva);
 
     private bool _puoPassareProssima =>
         (_partita?.Fase is GamePhase.ShowingAnswers or GamePhase.Leaderboard)
@@ -254,35 +166,6 @@ else
 
         _isLoading = false;
     }
-    private async Task OnMancheChanged(ChangeEventArgs e)
-    {
-        _messaggio = null;
-        _errore = null;
-
-        _mancheSelezionataId = e.Value?.ToString();
-
-        if (_partita is null || string.IsNullOrWhiteSpace(_mancheSelezionataId))
-        {
-            _mancheCorrente = null;
-            _domandaCorrente = null;
-
-            return;
-        }
-
-        if (!int.TryParse(_mancheSelezionataId, out var mid))
-        {
-            _mancheCorrente = null;
-            _domandaCorrente = null;
-
-            return;
-        }
-
-        _mancheCorrente = _partita.Manches.FirstOrDefault(m => m.Id == mid);
-        AggiornaDomandaCorrente();
-
-        await InvokeAsync(StateHasChanged);
-    }
-
     private void AggiornaDomandaCorrente()
     {
         _domandaCorrente = null;
@@ -297,12 +180,15 @@ else
         }
     }
 
-    private async Task StartMancheAsync()
+    private async Task AvviaPartitaAsync()
     {
-        if (_partita?.Fase == GamePhase.Lobby)
-            await ExecuteTransitionAsync(db => PartitaStateMachineService.AvviaPartitaAsync(db, PartitaId, Clock));
-        else if (_partita?.Fase == GamePhase.RoundEnded && _mancheCorrente is not null)
-            await ExecuteTransitionAsync(db => PartitaStateMachineService.AvviaMancheSuccessivaAsync(db, PartitaId, _mancheCorrente.Id, Clock));
+        await ExecuteTransitionAsync(db => PartitaStateMachineService.AvviaPartitaAsync(db, PartitaId, Clock));
+    }
+
+    private async Task AvviaMancheSuccessivaAsync()
+    {
+        if (_mancheCorrente is null) return;
+        await ExecuteTransitionAsync(db => PartitaStateMachineService.AvviaMancheSuccessivaAsync(db, PartitaId, _mancheCorrente.Id, Clock));
     }
 
     private async Task ProssimaDomandaAsync()
@@ -386,12 +272,8 @@ else
 
         if (_partita.CurrentMancheId.HasValue)
             _mancheCorrente = _partita.Manches.FirstOrDefault(m => m.Id == _partita.CurrentMancheId.Value);
-        else if (!string.IsNullOrWhiteSpace(_mancheSelezionataId) && int.TryParse(_mancheSelezionataId, out var mid))
-            _mancheCorrente = _partita.Manches.FirstOrDefault(m => m.Id == mid);
         else
             _mancheCorrente = _partita.Manches.OrderBy(m => m.Id).FirstOrDefault();
-
-        _mancheSelezionataId = _mancheCorrente?.Id.ToString();
         AggiornaDomandaCorrente();
 
         if (publish) await PublishStateAsync();
@@ -406,19 +288,5 @@ else
             GameState.SetState(state);
     }
 
-    private static string GetStatoDomanda(MancheDomanda md)
-    {
-        if (md.DtStart == null && md.DtEnd == null) return "In attesa";
-        if (md.DtStart != null && md.DtEnd == null) return "In corso";
-        if (md.DtStart != null && md.DtEnd != null) return "Conclusa";
-        return "Sconosciuto";
-    }
-
     private void TornaAllAdmin() => Nav.NavigateTo("/admin");
-    //private void ApriProiettore() => Nav.NavigateTo($"/proiettore/{PartitaId}");
-    private async Task ApriProiettore()
-    {
-        var url = $"/proiettore/{PartitaId}";
-        await JS.InvokeVoidAsync("openInNewTab", url);
-    }
 }

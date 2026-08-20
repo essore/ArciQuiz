@@ -11,6 +11,45 @@ Ogni voce deve indicare:
 - verifiche realmente eseguite;
 - rischi, assunzioni o blocchi.
 
+## 2026-08-19 - AQ-047 Impedire associazioni duplicate e nascondere gli ID interni
+
+- Task: AQ-047.
+- Risultato:
+  - aggiunto un servizio server-side che rifiuta, prima del salvataggio, una domanda già associata a un'altra manche della stessa partita con un messaggio italiano;
+  - l'elenco delle domande disponibili esclude tutte quelle già usate nella partita corrente, lasciandole riutilizzabili in un'altra partita;
+  - rimossi gli identificativi tecnici dalle pagine di configurazione partita/manche e dal catalogo domande; collegamenti e operazioni continuano a usare gli ID internamente;
+  - AQ-047 concluso e AQ-048 promosso a `READY`.
+- File principali: `Web/Services/MancheDomandaAssociationService.cs`, `Web/Components/Pages/MancheDomandeConfig.razor`, `Web/Components/Pages/PartitaConfig.razor`, `Web/Components/Pages/DomandeAdmin.razor`, `Core.Tests/MancheDomandaAssociationServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests\Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~MancheDomandaAssociationServiceTests`: 2 test superati;
+  - `rg -n -i 'Id:|<th>Id</th>|#[{]?_.*Id|@[a-zA-Z_]+\.Id' Web\Components\Pages\PartitaConfig.razor Web\Components\Pages\MancheDomandeConfig.razor Web\Components\Pages\DomandeAdmin.razor`: restano solo i parametri tecnici delle route;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 102 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi noti;
+  - `git diff --check`: nessun errore di spaziatura.
+- Rischi residui:
+  - lo smoke interattivo della configurazione manche/domande va ripetuto con un'istanza locale disponibile; il vincolo funzionale è coperto dal servizio e dai test d'integrazione.
+
+---
+
+## 2026-08-19 - AQ-046 Correggere il contatore domande di `/partita`
+
+- Task: AQ-046.
+- Risultato:
+  - il caricamento della configurazione partita include ora le associazioni alle domande di ciascuna manche;
+  - il contatore mostra quindi il numero effettivo di domande della partita visualizzata, incluso lo zero per una manche vuota;
+  - aggiunto test d'integrazione sui riepiloghi di una partita vuota e di una popolata;
+  - AQ-046 concluso e AQ-047 promosso a `READY`.
+- File principali: `Web/Components/Pages/PartitaConfig.razor`, `Core.Tests/PartitaConfigSummaryTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test Core.Tests\Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PartitaConfigSummaryTests`: 1 test superato;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 100 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi noti;
+  - `git diff --check`: nessun errore di spaziatura.
+- Rischi residui:
+  - lo smoke interattivo da browser con partite vuote e popolate va ripetuto con un'istanza locale disponibile; la query e i due stati sono coperti dal test d'integrazione.
+
+---
+
 ## 2026-08-19 - AQ-045 Semplificare menu e layout della dashboard admin
 
 - Task: AQ-045.

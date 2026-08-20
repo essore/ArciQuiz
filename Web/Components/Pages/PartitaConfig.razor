@@ -62,7 +62,6 @@ else
                 <div class="card-body">
                     <h5 class="card-title">Info</h5>
                     <p class="card-text">
-                        Id: @_partita.Id<br />
                         Creata il @_partita.DtCreazione.ToLocalTime().ToString("g")<br />
                         Manches: @_partita.Manches.Count<br />
                         Squadre iscritte: @_partita.PlayersPartita.Count
@@ -91,7 +90,6 @@ else
         <table class="table table-sm align-middle">
             <thead>
                 <tr>
-                    <th>#</th>
                     <th>Stato</th>
                     <th>Tempo risposta (s)</th>
                     <th>Punti base</th>
@@ -105,7 +103,6 @@ else
                 @foreach (var m in _partita.Manches.OrderBy(m => m.Id))
                 {
                     <tr>
-                        <td>@m.Id</td>
                         <td>
                             <select class="form-select form-select-sm" @bind="m.Stato">
                                 @foreach (MancheStato stato in Enum.GetValues(typeof(MancheStato)))
@@ -170,7 +167,6 @@ else
             <thead>
                 <tr>
                     <th>Nome squadra</th>
-                    <th>Id</th>
                 </tr>
             </thead>
             <tbody>
@@ -178,7 +174,6 @@ else
                 {
                     <tr>
                         <td>@p.NomeSquadra</td>
-                        <td>@p.Id</td>
                     </tr>
                 }
             </tbody>
@@ -216,6 +211,7 @@ else
         _partita = await db.Partite
             .AsNoTracking()
             .Include(p => p.Manches)
+                .ThenInclude(m => m.Domande)
             .Include(p => p.PlayersPartita)
                 .ThenInclude(pp => pp.Player)
             .FirstOrDefaultAsync(p => p.Id == Id);

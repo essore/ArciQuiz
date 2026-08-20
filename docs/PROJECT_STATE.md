@@ -3,7 +3,7 @@
 Ultima verifica: **2026-08-19**  
 Commit ispezionato prima della documentazione: `3b476a5` (`master`)
 
-Stadio: **prototipo compilabile con baseline di test (99 casi), partita attiva persistita e navigazione admin esplicita (AQ-044 completato)**
+Stadio: **prototipo compilabile con baseline di test (102 casi), partita attiva persistita e configurazione domande coerente (AQ-047 completato)**
 
 ## Baseline verificata
 
@@ -14,9 +14,9 @@ dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 ```
 
-Esito: test riusciti (99 casi, inclusi calcolo coefficiente tempo, punteggi con moltiplicatori, malus, registrazione automatica astensioni con soglia per manche, idempotenza, routing/sessione squadra, invio risposta, soluzione/distribuzione, classifiche, annullamento, macchina a stati, recupero su SQLite riaperto e partita attiva) e build riuscita, 0 errori e 3 avvisi noti.
+Esito: test riusciti (102 casi, inclusi calcolo coefficiente tempo, punteggi con moltiplicatori, malus, registrazione automatica astensioni con soglia per manche, idempotenza, routing/sessione squadra, invio risposta, soluzione/distribuzione, classifiche, annullamento, macchina a stati, recupero su SQLite riaperto, partita attiva, caricamento del riepilogo e associazione unica delle domande nella partita) e build riuscita, 0 errori e 3 avvisi noti.
 
-Completato `AQ-045`: la dashboard espone direttamente l'elenco partite e il comando `Nuova partita`, senza duplicare collegamenti prototipali; la gestione domande resta nel menu admin protetto. `AQ-046` è ora il task autorizzato in coda (`READY`); `AQ-041` resta pianificato dopo i task funzionali.
+Completato `AQ-047`: il server impedisce di associare una domanda a più manche della stessa partita e l'interfaccia di gestione non espone identificativi tecnici. `AQ-048` è ora il task autorizzato in coda (`READY`); `AQ-041` resta pianificato dopo i task funzionali.
 
 ## Funzioni presenti
 

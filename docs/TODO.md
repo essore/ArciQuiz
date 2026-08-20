@@ -352,7 +352,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
 ### AQ-046 — Correggere il contatore domande di `/partita`
 
-- Stato: `READY`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-045
 - Obiettivo: mostrare il numero reale di domande associate alla partita visualizzata.
@@ -361,11 +361,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - il conteggio riguarda la partita corrente e non l'ultima partita o il catalogo globale;
   - il valore si aggiorna dopo aggiunta o rimozione di un'associazione;
   - il caso di partita senza domande continua a mostrare zero.
-- Validazione: test del caricamento del riepilogo e smoke test con partite vuote e popolate.
+- Validazione: test d'integrazione del caricamento del riepilogo con partite vuote e popolate, suite completa (100 casi) e build completati. Smoke interattivo da ripetere con un'istanza locale disponibile.
 
 ### AQ-047 — Impedire associazioni duplicate e nascondere gli ID interni
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-046
 - Obiettivo: rendere coerente l'associazione delle domande alle manche della stessa partita e rimuovere gli identificativi tecnici dall'interfaccia.
@@ -374,11 +374,11 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - il vincolo viene verificato lato server prima del salvataggio, con messaggio chiaro in italiano;
   - le pagine di gestione manche/domande non mostrano gli ID tecnici nei testi, nelle tabelle o nei controlli visibili;
   - i collegamenti e le operazioni continuano a usare gli identificativi internamente senza esporli all'utente.
-- Validazione: test di validazione nominale e duplicata, più smoke test della gestione manche/domande.
+- Validazione: test d'integrazione di associazione nominale, duplicata nella stessa partita e riuso in un'altra partita, suite completa (102 casi) e build completati. Smoke interattivo della gestione manche/domande da ripetere con un'istanza locale disponibile.
 
 ### AQ-048 — Riorganizzare la regia della partita
 
-- Stato: `PLANNED`
+- Stato: `IN_PROGRESS`
 - Priorità: P1
 - Dipendenze: AQ-047
 - Obiettivo: rendere la regia leggibile e coerente con la partita selezionata, riducendo i comandi ambigui.
