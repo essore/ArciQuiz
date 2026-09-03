@@ -11,6 +11,312 @@ Ogni voce deve indicare:
 - verifiche realmente eseguite;
 - rischi, assunzioni o blocchi.
 
+## 2026-09-02 - AQ-041 Ripulire residui del prototipo e avvisi
+
+- Task: AQ-041.
+- Risultato:
+  - rimosse le route demo `Counter` e `Weather`, i blocchi commentati del template e i riferimenti assoluti alla cache NuGet dal progetto web;
+  - localizzati in italiano le pagine di errore e non trovata, il messaggio di errore Blazor e il dialogo di riconnessione;
+  - valutata separatamente la rinomina dei refusi: resta esclusa perché coinvolge il nome del progetto `Infrasctructure` e supererebbe il perimetro della pulizia;
+  - AQ-041 impostato a `BLOCKED` per l'impossibilità di ripristinare le patch di sicurezza delle dipendenze.
+- File principali: `Web/Components/App.razor`, `Web/Components/Layout/MainLayout.razor`, `Web/Components/Layout/MinimalLayout.razor`, `Web/Components/Layout/ReconnectModal.razor`, `Web/Components/Pages/Error.razor`, `Web/Components/Pages/NotFound.razor`, `Web/Components/Pages/Counter.razor`, `Web/Components/Pages/Weather.razor`, `Web/Program.cs`, `Web/Web.csproj`, `Core/Core.csproj`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 110 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori, nessun warning del compilatore proprietario; restano avvisi NuGet per vulnerabilità e audit non disponibile;
+  - controllo route con `rg`: nessuna route o testo delle pagine demo residua;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - `dotnet restore Infrasctructure\\Infrasctructure.csproj --ignore-failed-sources --disable-parallel` ha confermato che NuGet è irraggiungibile (connessione a `127.0.0.1:9`); la patch EF Core 10.0.11, compatibile con net10.0 e dipendente da SQLitePCLRaw ≥2.1.12, non può quindi essere scaricata né verificata. Ripristinare l'accesso al feed e completare AQ-041 prima di promuovere AQ-042.
+
+## 2026-09-02 - AQ-060 Ridisegnare la pagina giocatore per smartphone
+
+- Task: AQ-060.
+- Risultato:
+  - ridisegnate domanda e opzioni della squadra con colori, bordi, icone e spaziature coerenti con il proiettore;
+  - sostituito il countdown testuale con il componente locale a icona, secondi e barra fluida, passando al solo rendering la durata già configurata senza modificare il timer autorevole;
+  - dopo la conferma la scelta ha un glow blu; alla soluzione la risposta corretta ha ✓ verde e contorno/glow oro, mentre le errate mostrano ✕ rossa e stato disabilitato;
+  - per una risposta errata restano visibili il glow blu della scelta e l'evidenza verde/oro della corretta; per astensione non è presente alcun glow blu;
+  - AQ-060 concluso e AQ-041 promosso a `READY`.
+- File principali: `Web/Components/Pages/SquadraSessione.razor`, `Web/Components/Pages/SquadraSessione.razor.css`, `Web/Services/PlayerGameViewService.cs`, `Core.Tests/PlayerGameViewServiceTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test Core.Tests\\Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PlayerGameViewServiceTests`: 15 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 110 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 11 avvisi NuGet noti;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - il collaudo visivo a larghezza smartphone resta non bloccante e registrato in AQ-060: l'istanza locale non è avviabile nella sandbox perché SQLite non può creare il database in `%LocalAppData%`; il payload continua a esporre la soluzione solo nella fase `ShowingAnswers`.
+
+## 2026-09-02 - AQ-051 Clonare una partita
+
+- Task: AQ-051.
+- Risultato:
+  - aggiunto il comando `Clona` nella dashboard e una pagina protetta per assegnare il titolo alla nuova partita;
+  - introdotta la clonazione atomica di manche, regole, ordine e riferimenti al catalogo, con stato iniziale non attivo e senza dati runtime;
+  - coperti con test una sorgente già giocata, l'assenza di dati di partecipazione nella copia e il rollback forzato in caso di errore;
+  - AQ-051 concluso e AQ-060 promosso a `READY`.
+- File principali: `Web/Services/PartitaCloneService.cs`, `Web/Components/Pages/ClonaPartita.razor`, `Web/Components/Pages/AdminHome.razor`, `Core.Tests/PartitaCloneServiceTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PartitaCloneServiceTests`: 2 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 109 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 11 avvisi NuGet noti.
+- Rischi, assunzioni o blocchi:
+  - lo smoke browser della dashboard resta un collaudo manuale non bloccante, documentato in AQ-051; la clonazione dei dati è verificata su SQLite temporaneo.
+
+## 2026-09-02 - Pianificazione AQ-060 restyling giocatore smartphone
+
+- Task: AQ-060, aggiunto su richiesta del proprietario.
+- Risultato:
+  - pianificato il restyling della pagina giocatore mobile, coerente con proiettore, slider e stati di risposta;
+  - la selezione squadra riceverà un glow blu distinto dalla risposta corretta verde/oro e dalle errate disabilitate;
+  - AQ-041 dipende ora anche da AQ-060, così il cleanup resta successivo al nuovo intervento UI.
+- File principali: `docs/TODO.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - controllata la coerenza di posizione, dipendenze e stato della coda.
+- Rischi, assunzioni o blocchi:
+  - nessuna modifica funzionale applicata; implementazione e collaudo mobile sono demandati ad AQ-060.
+
+## 2026-09-02 - AQ-050 Barra anticipata di un secondo
+
+- Task: AQ-050, rifinitura richiesta dal proprietario.
+- Risultato:
+  - la barra CSS usa una durata visiva di un secondo inferiore rispetto al timer autorevole;
+  - con `1 s` ancora mostrato, la barra è già a zero; il server continua ad accettare risposte fino alla scadenza effettiva;
+  - la soglia rossa resta calcolata sul tempo autorevole, non sulla durata visiva abbreviata.
+- File principali: `Web/Components/ProjectorCountdown.razor`, `docs/TODO.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -c Release -m:1 /p:UseSharedCompilation=false`: 107 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -c Release -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 11 avvisi NuGet noti;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - il collaudo visivo multi-risoluzione resta non bloccante e registrato in AQ-050.
+
+## 2026-09-02 - AQ-050 Timer persistente nella soluzione
+
+- Task: AQ-050, rifinitura richiesta dal proprietario.
+- Risultato:
+  - mantenuto il timer nella stessa posizione tra domanda e risposte durante la soluzione;
+  - a tempo scaduto mostra `0 s`, icona timeout e barra/stile grigi, evitando lo spostamento delle opzioni.
+- File principali: `Web/Components/ProjectorCountdown.razor`, `Web/Components/ProjectorCountdown.razor.css`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -c Release -m:1 /p:UseSharedCompilation=false`: 107 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -c Release -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 11 avvisi NuGet noti;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - il collaudo visivo multi-risoluzione resta non bloccante e registrato in AQ-050.
+
+## 2026-09-02 - AQ-050 Timer critico al 20%
+
+- Task: AQ-050, rifinitura richiesta dal proprietario.
+- Risultato:
+  - confermata nel sorgente la posizione del timer tra domanda e opzioni, come nel mockup;
+  - sotto il 20% residuo barra, icona e secondi diventano rossi.
+- File principali: `Web/Components/ProjectorCountdown.razor`, `Web/Components/ProjectorCountdown.razor.css`, `docs/TODO.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -c Release -m:1 /p:UseSharedCompilation=false`: 107 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -c Release -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 11 avvisi NuGet noti;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - la soglia è strettamente inferiore al 20%, come richiesto; il collaudo visivo multi-risoluzione resta non bloccante e registrato in AQ-050.
+
+## 2026-09-02 - AQ-050 Enfasi risposta corretta e timer fluido
+
+- Task: AQ-050, rifinitura richiesta dal proprietario.
+- Risultato:
+  - aggiunti contorno oro e glow animato alla risposta corretta, conservando il ✓ verde;
+  - spostato il timer tra domanda e opzioni, al 90% della larghezza disponibile;
+  - aggiunta icona SVG locale per mantenere il funzionamento offline;
+  - resa continua la barra con interpolazione CSS di un secondo, senza polling o elaborazione server aggiuntivi.
+- File principali: `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor.css`, `Web/Components/ProjectorCountdown.razor`, `Web/Components/ProjectorCountdown.razor.css`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 107 test superati;
+  - build Debug: compilazione dei progetti completata durante i test, ma copia finale di `Web.exe` bloccata da un processo esterno che usa il file;
+  - `dotnet build ArciQuiz.slnx --no-restore -c Release -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 11 avvisi NuGet noti;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - nessun caricamento esterno di icone: l'SVG è nel componente per rispettare il funzionamento LAN senza Internet;
+  - il collaudo visivo multi-risoluzione resta non bloccante e registrato in AQ-050.
+
+## 2026-09-02 - AQ-050 Icone di esito e timer a barra
+
+- Task: AQ-050, rifinitura richiesta dal proprietario.
+- Risultato:
+  - sostituito il badge testuale della soluzione con ✓ verde nella risposta corretta;
+  - aggiunte ✕ rosse circolari e sfondo grigio disabilitato alle risposte errate;
+  - aggiunto `ProjectorCountdown`, con secondi e barra che diminuisce dal 100% allo zero;
+  - icone e stato disabilitato restano esclusivi della fase soluzione.
+- File principali: `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor.css`, `Web/Components/ProjectorCountdown.razor`, `Web/Components/ProjectorCountdown.razor.css`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test Core.Tests\\Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PlayerGameViewServiceTests`: 14 test superati;
+  - primo tentativo di `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: un errore SQLite intermittente nella fixture di `SquadreServiceTests`;
+  - ripetizione di `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 107 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 11 avvisi NuGet noti;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - il collaudo visivo multi-risoluzione resta non bloccante e registrato in AQ-050 perché la policy browser ha negato l'URL locale.
+
+## 2026-09-02 - AQ-050 Ridisegno proiettore e risultati domanda
+
+- Task: AQ-050.
+- Risultato:
+  - ridisegnata la vista del proiettore con quattro opzioni colorate, contrastate e identificabili anche dalla lettera;
+  - dopo la chiusura, l'opzione corretta riceve un bordo verde e il badge testuale `Risposta corretta`;
+  - aggiunto un riepilogo pubblico di risposte corrette, errate, astensioni e squadra o squadre con risposta valida più veloce;
+  - rimossi dalla vista pubblica gli enum e le informazioni tecniche di fase;
+  - aggiunti stili responsive specifici per layout 4:3 e 16:9;
+  - AQ-050 concluso e AQ-051 promosso a `READY`.
+- File principali: `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor.css`, `Web/Services/ProjectorQuestionResultsService.cs`, `Core.Tests/PlayerGameViewServiceTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test Core.Tests\\Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PlayerGameViewServiceTests`: 14 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 107 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 11 avvisi NuGet noti;
+  - avvio dell'app con database SQLite temporaneo nel worktree: riuscito;
+  - verifica browser del proiettore: non eseguibile, apertura dell'URL locale negata dalla policy browser;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - una risposta valida per il riepilogo è una scelta A/B/C/D confermata e non annullata; può essere errata, perché il requisito non richiede la sola risposta corretta;
+  - collaudo visivo a cinque risoluzioni residuo e non bloccante, registrato in AQ-050.
+
+## 2026-09-02 - Pianificazione aggiunta casuale di domande filtrate
+
+- Task: pianificazione della nuova funzione richiesta dal proprietario per la configurazione delle domande di una manche.
+- Risultato:
+  - aggiunto AQ-059 in fondo alla coda;
+  - previsti filtri distinti per categoria e difficoltà, conteggio delle domande disponibili e quantità modificabile tra 1 e il totale filtrato;
+  - specificata l'aggiunta casuale senza ripetizioni, atomica e in coda all'ordine esistente;
+  - mantenuta l'aggiunta manuale della singola domanda.
+- File principali: `docs/TODO.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - confrontata la richiesta con la pagina `MancheDomandeConfig` e con il vincolo che impedisce di riutilizzare una domanda nella stessa partita;
+  - `git diff --check`.
+- Rischi, assunzioni o blocchi:
+  - il task considera disponibili soltanto domande utilizzabili e non già associate alla partita; l'implementazione resta fuori da questa modifica documentale.
+
+---
+
+## 2026-09-02 - AQ-058 Ripristino avvio manche successiva
+
+- Task: AQ-058.
+- Risultato:
+  - introdotto un ordinamento condiviso delle manche per `Ordine` e ID, usato sia dal motore sia dalla regia;
+  - dopo la fine di una manche la regia distingue correttamente l'avvio della successiva dalla conclusione della partita anche con valori `Ordine` duplicati;
+  - le nuove partite numerano le manche iniziali progressivamente e la configurazione assegna alla nuova manche il successivo ordine massimo disponibile;
+  - AQ-058 concluso e AQ-050 promosso a `READY`.
+- File principali: `Core/Services/MancheOrderingService.cs`, `Web/Services/PartitaStateMachineService.cs`, `Web/Components/Pages/RegiaPartita.razor`, `Web/Components/Pages/NuovaPartita.razor`, `Web/Components/Pages/PartitaConfig.razor`, `Core.Tests/PartitaStateMachineServiceTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test Core.Tests\\Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PartitaStateMachineServiceTests`: 6 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 105 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 3 avvisi NuGet noti;
+  - avvio con credenziali temporanee di processo: bloccato prima di Kestrel dalla migrazione SQLite perché il database locale è in sola lettura;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - il pareggio di `Ordine` viene risolto dall'ID persistito, quindi le partite storiche restano percorribili in modo stabile;
+  - smoke UI residuo non bloccante registrato in AQ-058: serve un database SQLite scrivibile e una configurazione admin locale.
+
+---
+
+## 2026-09-02 - AQ-049 Controllo visibilità QR sul proiettore
+
+- Task: AQ-049.
+- Risultato:
+  - aggiunto in regia il comando esplicito `Mostra QR` / `Nascondi QR`;
+  - il proiettore riceve subito il cambio tramite lo stato runtime condiviso e rimuove interamente il componente QR quando nascosto;
+  - una seconda sessione proiettore usa lo stato runtime corrente, senza sovrascrivere la visibilità scelta con lo stato persistito;
+  - AQ-049 concluso e AQ-058 promosso a `READY`.
+- File principali: `Core/Enums/GamePhase.cs`, `Web/Services/GameStateService cs.cs`, `Web/Components/Pages/RegiaPartita.razor`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor`, `Core.Tests/GameStateServiceTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~GameStateServiceTests`: 2 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 104 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 3 avvisi noti;
+  - `git diff --check`: riuscito.
+- Rischi, assunzioni o blocchi:
+  - la visibilità del QR è volutamente runtime: dopo un riavvio torna visibile;
+  - lo smoke su due sessioni non è eseguibile qui perché l'avvio dell'app fallisce sul database SQLite locale in sola lettura; il test umano è registrato in AQ-049.
+
+---
+
+## 2026-09-02 - Segnalazione regressione passaggio tra manche
+
+- Task: pianificazione del bug segnalato dal proprietario durante una partita reale.
+- Risultato:
+  - aggiunto AQ-058 come task P0 subito dopo AQ-049;
+  - registrato che, dopo la conclusione della prima manche, la regia può non esporre l'avvio della seconda;
+  - i criteri coprono sia le nuove partite sia quelle esistenti con valori `Ordine` duplicati;
+  - AQ-050 dipende ora da AQ-058, così la regressione funzionale viene affrontata prima del ridisegno del proiettore.
+- File principali: `docs/TODO.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - confrontata la logica della regia con l'ordinamento del motore e con la creazione multipla delle manche;
+  - `git diff --check`.
+- Rischi, assunzioni o blocchi:
+  - causa probabile verificata nel codice: la regia richiede un `Ordine` maggiore, mentre più manche create insieme possono ricevere lo stesso ordine; l'implementazione della correzione resta fuori da questa modifica documentale.
+
+---
+
+## 2026-09-01 - Protocollo TestUmano per verifiche residue
+
+- Task: aggiornamento operativo richiesto dal proprietario.
+- Risultato:
+  - definita in `AGENTS.md` e `docs/TODO.md` la dicitura ricercabile `TestUmano: DA ESEGUIRE` per prove manuali non bloccanti;
+  - un test umano mancante richiede ora una valutazione esplicita del suo impatto sui task successivi prima di usare `BLOCKED`;
+  - AQ-048 registra i passi, il risultato atteso e il rischio residuo della sua prova manuale.
+- File principali: `AGENTS.md`, `docs/TODO.md`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - riesaminati stati della coda e vincoli di completamento; confermato che AQ-049 dipende da AQ-048 ma non dal collaudo browser residuo.
+- Rischi, assunzioni o blocchi:
+  - la classificazione non consente di chiudere task con errori di build o test automatici causati dalla modifica; tali errori restano da correggere o da bloccare secondo il loro impatto.
+
+---
+
+## 2026-09-01 - AQ-048 verifica manuale resa non bloccante
+
+- Task: AQ-048.
+- Risultato:
+  - su decisione esplicita del proprietario, AQ-048 è concluso perché le verifiche automatiche e di compilazione sono già riuscite;
+  - lo smoke dell'aggiornamento automatico e la verifica del layout a 1366×768 restano annotati come collaudo manuale residuo, senza bloccare la coda;
+  - AQ-049 è promosso a `READY`.
+- File principali: `docs/TODO.md`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - riesaminati gli esiti già registrati: 3 test mirati, 103 test complessivi, build con 0 errori e `git diff --check` riuscito.
+- Rischi, assunzioni o blocchi:
+  - il browser locale continua a negare l'accesso all'URL dell'app; la prova manuale va eseguita in un ambiente browser disponibile prima della serata.
+
+---
+
+## 2026-09-01 - AQ-048 Riorganizzare la regia della partita
+
+- Task: AQ-048.
+- Risultato:
+  - la regia espone un solo comando primario coerente con la fase persistita e lascia visibili solo le alternative consentite;
+  - il selettore manuale della manche è assente, lo stato e il countdown restano in una testata fissa e l'annullamento è separato dai comandi di avanzamento;
+  - l'apertura della regia verifica la partita attiva, richiede conferma prima della sostituzione e aggiorna l'interfaccia quando `GameStateService` notifica un cambio di fase;
+  - aggiunto un test d'integrazione che verifica la richiesta di conferma senza modificare la partita attiva.
+- File principali: `Web/Components/Pages/RegiaPartita.razor`, `Web/Services/PartitaAttivaService.cs`, `Core.Tests/PartitaAttivaServiceTests.cs`.
+- Verifiche:
+  - `dotnet test Core.Tests\Core.Tests.csproj --no-restore -m:1 /p:UseSharedCompilation=false --filter FullyQualifiedName~PartitaAttivaServiceTests`: 3 test superati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 103 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: compilazione completata con 0 errori e 3 avvisi NuGet noti;
+  - `git diff --check`: nessun errore di spaziatura.
+- Rischi, assunzioni o blocchi:
+  - il browser locale ha negato l'accesso a `127.0.0.1`, quindi non è stato possibile completare lo smoke dell'aggiornamento alla scadenza né la verifica manuale a 1366×768;
+  - AQ-048 resta `BLOCKED` esclusivamente in attesa di queste verifiche essenziali.
+
+---
+
+## 2026-08-31 - Estensione della coda UX e manutenzione dati
+
+- Task: aggiornamento del piano su richiesta esplicita del proprietario.
+- Risultato:
+  - aggiornato AQ-048 affinché la regia mostri soltanto le operazioni possibili, attivi la partita selezionata e reagisca agli avanzamenti prodotti dal timer;
+  - estesa la validazione di AQ-050 alla resa flessibile su proiettori e TV 4:3 o 16:9, da 800×600 a 4K;
+  - aggiunti in fondo alla coda AQ-052–AQ-057 per regole di manche, preparazione guidata, identità visiva, archiviazione del catalogo, backup SQLite e reset dei dati;
+  - mantenuto AQ-048 come unico task `IN_PROGRESS`; tutti i nuovi task sono `PLANNED` e dipendono in sequenza dalla coda esistente.
+- File principali: `docs/TODO.md`, `docs/WORKLOG.md`.
+- Verifiche: controllo manuale di stati, dipendenze e ordine della coda; `git diff --check`.
+- Rischi, assunzioni o blocchi:
+  - l'apertura della regia rende attiva la partita selezionata; quando sostituisce un'altra partita attiva è richiesta una conferma esplicita;
+  - il reset completo richiede un backup automatico verificato e non è consentito durante una partita in corso.
+
+---
+
 ## 2026-08-19 - AQ-047 Impedire associazioni duplicate e nascondere gli ID interni
 
 - Task: AQ-047.

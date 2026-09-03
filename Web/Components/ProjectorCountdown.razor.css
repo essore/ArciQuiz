@@ -1,0 +1,78 @@
+.projector-countdown {
+    display: grid;
+    grid-template-columns: auto minmax(10rem, 1fr);
+    align-items: center;
+    gap: .85rem;
+    width: 100%;
+}
+
+.projector-countdown-readout {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+}
+
+.projector-countdown-icon {
+    width: clamp(1.4rem, 2.6vw, 2rem);
+    height: clamp(1.4rem, 2.6vw, 2rem);
+    fill: none;
+    stroke: #1457d9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.2;
+}
+
+.projector-countdown-seconds {
+    min-width: 4.25rem;
+    color: #1457d9;
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+}
+
+.projector-countdown-track {
+    height: clamp(.8rem, 1.5vw, 1.1rem);
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dce3ee;
+    box-shadow: inset 0 .08rem .18rem rgb(18 24 38 / 14%);
+}
+
+.projector-countdown-progress {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #1f74ed, #1457d9);
+    transition: width 1s linear;
+}
+
+.projector-countdown.is-critical .projector-countdown-seconds,
+.projector-countdown.is-critical .projector-countdown-icon {
+    color: #c72424;
+    stroke: #c72424;
+}
+
+.projector-countdown.is-critical .projector-countdown-progress {
+    background: linear-gradient(90deg, #e53935, #b91c1c);
+}
+
+.projector-countdown.is-timeout .projector-countdown-seconds,
+.projector-countdown.is-timeout .projector-countdown-icon {
+    color: #687386;
+    stroke: #687386;
+}
+
+.projector-countdown.is-timeout .projector-countdown-track {
+    background: #cbd3df;
+}
+
+.projector-countdown.is-timeout .projector-countdown-progress {
+    background: #aeb8c6;
+}
+
+@media (max-width: 40rem) {
+    .projector-countdown {
+        grid-template-columns: 1fr;
+        gap: .35rem;
+    }
+}

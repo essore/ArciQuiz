@@ -26,7 +26,8 @@ namespace Core.Enums
        int? SecondsRemainingHint,
        bool AcceptingAnswers,
        string? PublicMessage,
-       long Version
+       long Version,
+       bool IsQrVisible = true
    );
 
 }

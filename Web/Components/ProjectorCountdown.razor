@@ -1,0 +1,97 @@
+@implements IAsyncDisposable
+@inject TimeProvider TimeProvider
+
+<div class="@CountdownClass">
+    <div class="projector-countdown-readout">
+        @if (IsTimedOut)
+        {
+            <svg class="projector-countdown-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 2h6M12 8v5l3 2M18.4 7.6A8 8 0 1 1 12 4a8 8 0 0 1 6.4 3.6ZM8 16l8-8M16 16 8 8" />
+            </svg>
+        }
+        else
+        {
+            <svg class="projector-countdown-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 2h6M12 8v5l3 2M18.4 7.6A8 8 0 1 1 12 4a8 8 0 0 1 6.4 3.6Z" />
+            </svg>
+        }
+        <output class="projector-countdown-seconds" role="timer" aria-live="polite">@_remainingSeconds s</output>
+    </div>
+    <div class="projector-countdown-track"
+         role="progressbar"
+         aria-label="@(IsTimedOut ? "Tempo scaduto" : "Tempo rimanente")"
+         aria-valuemin="0"
+         aria-valuemax="@DurationSeconds"
+         aria-valuenow="@_remainingSeconds">
+        <div class="projector-countdown-progress" style="width: @RemainingPercentStyle"></div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public DateTimeOffset EndsAtUtc { get; set; }
+    [Parameter] public int DurationSeconds { get; set; }
+    [Parameter] public bool IsTimedOut { get; set; }
+
+    private CancellationTokenSource? _countdownToken;
+    private DateTimeOffset _countdownEnd;
+    private int _remainingSeconds;
+    private double _actualRemainingPercent;
+    private double _visualRemainingPercent;
+    private string RemainingPercentStyle => FormattableString.Invariant($"{_visualRemainingPercent:0.##}%");
+    private string CountdownClass => IsTimedOut
+        ? "projector-countdown is-timeout"
+        : _actualRemainingPercent < 20
+            ? "projector-countdown is-critical"
+            : "projector-countdown";
+
+    // Riavvia il countdown quando la regia apre una nuova domanda nello stesso circuito Blazor.
+    protected override void OnParametersSet()
+    {
+        UpdateRemainingTime();
+        if (_countdownEnd == EndsAtUtc)
+            return;
+
+        _countdownToken?.Cancel();
+        _countdownToken?.Dispose();
+        _countdownEnd = EndsAtUtc;
+        _countdownToken = new CancellationTokenSource();
+        _ = RunCountdownAsync(_countdownToken.Token);
+    }
+
+    private async Task RunCountdownAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1), TimeProvider);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                UpdateRemainingTime();
+                await InvokeAsync(StateHasChanged);
+                if (_remainingSeconds == 0)
+                    break;
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void UpdateRemainingTime()
+    {
+        _remainingSeconds = Math.Max(0, (int)Math.Ceiling((EndsAtUtc - TimeProvider.GetUtcNow()).TotalSeconds));
+        var durationSeconds = Math.Max(1, DurationSeconds);
+        _actualRemainingPercent = Math.Clamp((double)_remainingSeconds / durationSeconds * 100, 0, 100);
+
+        // Conclude la sola barra un secondo prima del timer autorevole, evitando sovrapposizioni con la soluzione.
+        var visualDurationSeconds = Math.Max(1, durationSeconds - 1);
+        var visualRemainingSeconds = Math.Max(0, _remainingSeconds - 1);
+        _visualRemainingPercent = Math.Clamp((double)visualRemainingSeconds / visualDurationSeconds * 100, 0, 100);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _countdownToken?.Cancel();
+        _countdownToken?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

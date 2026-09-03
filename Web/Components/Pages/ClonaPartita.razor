@@ -1,0 +1,54 @@
+@page "/partita/{Id:int}/clona"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+@using Infrasctructure.Data
+@using Microsoft.EntityFrameworkCore
+@using Web.Services
+@inject IDbContextFactory<ArciQuizDbContext> DbFactory
+@inject NavigationManager Nav
+
+<PageTitle>Clona partita</PageTitle>
+
+<h1>Clona partita</h1>
+<p>La nuova partita manterrà manche e domande, ma partirà senza squadre, risposte o punteggi.</p>
+
+<div class="mb-3">
+    <label class="form-label" for="titoloPartita">Titolo della nuova partita</label>
+    <input id="titoloPartita" class="form-control" @bind="_titolo" />
+</div>
+
+<button class="btn btn-primary" @onclick="ClonaAsync">Clona partita</button>
+<button class="btn btn-secondary ms-3" @onclick="Annulla">Annulla</button>
+
+@if (!string.IsNullOrWhiteSpace(_errore))
+{
+    <div class="alert alert-danger mt-3">@_errore</div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private string _titolo = string.Empty;
+    private string? _errore;
+
+    private async Task ClonaAsync()
+    {
+        _errore = null;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var result = await PartitaCloneService.ClonaAsync(db, Id, _titolo);
+        if (!result.IsSuccess)
+        {
+            _errore = result.Messaggio;
+            return;
+        }
+
+        Nav.NavigateTo($"/partita/{result.PartitaId}");
+    }
+
+    private void Annulla()
+    {
+        Nav.NavigateTo("/admin");
+    }
+}

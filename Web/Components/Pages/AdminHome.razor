@@ -121,6 +121,10 @@ else
                         <a class="btn btn-sm btn-outline-secondary ms-1" href="@($"/proiettore/{p.Id}")" target="_blank">
                             Proiettore
                         </a>
+                        <button class="btn btn-sm btn-outline-primary ms-1"
+                                @onclick="@(() => VaiAClonaPartita(p.Id))">
+                            Clona
+                        </button>
                         @if (!p.IsAttiva && p.Stato != PartitaStato.Conclusa)
                         {
                             <button class="btn btn-sm btn-primary ms-1"
@@ -187,6 +191,10 @@ else
     private void VaiARegia(int partitaId)
     {
         Nav.NavigateTo($"/regia/{partitaId}");
+    }
+    private void VaiAClonaPartita(int partitaId)
+    {
+        Nav.NavigateTo($"/partita/{partitaId}/clona");
     }
     private void VaiNuovaPartita()
     {

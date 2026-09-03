@@ -47,6 +47,26 @@ public class PartitaAttivaServiceTests
         Assert.False(concludedGame.IsAttiva);
     }
 
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task VerificaAttivazioneAsync_RichiedeConfermaSenzaModificareLaPartitaAttiva()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        await PartitaAttivaService.ImpostaAttivaAsync(test.Database, test.FirstGameId);
+
+        var result = await PartitaAttivaService.VerificaAttivazioneAsync(test.Database, test.SecondGameId);
+        var activeGames = await test.Database.Partite
+            .AsNoTracking()
+            .Where(item => item.IsAttiva)
+            .Select(item => item.Id)
+            .ToListAsync();
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.RequiresConfirmation);
+        Assert.Equal("Prima partita", result.PartitaAttivaTitolo);
+        Assert.Equal([test.FirstGameId], activeGames);
+    }
+
     private sealed class TestDatabase : IAsyncDisposable
     {
         private readonly string _path;

@@ -8,6 +8,8 @@ Deve esserci al massimo un task `READY`. Quando viene concluso, l'agente promuov
 
 Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
+`TestUmano` non è uno stato: una voce `TestUmano: DA ESEGUIRE` documenta una prova manuale mirata non bloccante, con passi, risultato atteso, contesto e rischio residuo. Le verifiche che condizionano funzionalità, sicurezza, dati o i task successivi richiedono invece lo stato `BLOCKED`.
+
 ## Milestone M0 — Baseline affidabile
 
 ### AQ-001 — Ripristinare la compilazione
@@ -378,21 +380,25 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
 ### AQ-048 — Riorganizzare la regia della partita
 
-- Stato: `IN_PROGRESS`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-047
 - Obiettivo: rendere la regia leggibile e coerente con la partita selezionata, riducendo i comandi ambigui.
 - Criteri di accettazione:
   - il proiettore è apribile con un'azione evidente in alto a destra;
-  - i comandi sono distribuiti in tre righe: partita, manche e domanda;
+  - la regia mostra soltanto le operazioni consentite dalla fase corrente, con una sola azione primaria chiaramente riconoscibile;
   - i bottoni usano icone standard accompagnate da testo e da un'etichetta accessibile;
-  - viene verificato se il selettore della manche è ancora necessario: se non serve al flusso corrente viene rimosso, altrimenti mostra chiaramente il contesto e non consente di agire sulla manche sbagliata;
-  - la regia opera sulla partita selezionata e non ricade silenziosamente sull'ultima partita.
-- Validazione: smoke test delle azioni di partita/manche/domanda e verifica manuale del layout.
+  - il selettore manuale della manche viene rimosso: manche e domanda correnti derivano dallo stato persistito della partita;
+  - aprire la regia rende attiva la partita selezionata; se esiste un'altra partita attiva, il cambio richiede una conferma esplicita;
+  - la regia si aggiorna quando il timer o un altro circuito cambia la fase, senza richiedere refresh o un comando fallito;
+  - stato corrente, countdown e azione primaria restano visibili sul monitor di un portatile senza scorrimento nel flusso ordinario;
+  - le operazioni distruttive, come l'annullamento di una domanda, restano separate dai comandi di avanzamento.
+- Validazione: test della selezione/attivazione completati (3 casi), suite completa (103 casi) e build completate.
+- TestUmano: DA ESEGUIRE — Avviare l'app in un browser locale disponibile, aprire la regia di una partita con timer breve e attendere la scadenza senza interagire; verificare il passaggio automatico di fase senza refresh e la visibilità di stato, countdown e azione primaria a 1366×768. Rischio residuo: il browser dell'ambiente agente ha negato l'accesso all'URL locale.
 
 ### AQ-049 — Aggiungere il controllo di visibilità del QR sul proiettore
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-048
 - Obiettivo: permettere al presentatore di mostrare o nascondere il QR senza dover cambiare pagina.
@@ -401,13 +407,31 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - il proiettore applica il comando alla partita corrente senza refresh manuale;
   - quando il QR è nascosto non rimane uno spazio vuoto o un elemento cliccabile;
   - il QR continua a puntare all'ingresso corretto della partita.
-- Validazione: smoke test dei due stati e verifica su una seconda sessione proiettore.
+- Validazione: test del contratto runtime QR, suite completa (104 casi) e build completati.
+- TestUmano: DA ESEGUIRE — Avviare l'app con un database SQLite scrivibile, aprire la regia e due sessioni del proiettore della stessa partita. Premere `Nascondi QR` e verificare che entrambi i proiettori rimuovano il QR senza refresh, spazio vuoto o elemento cliccabile; premere `Mostra QR` e verificare che ricompaia in entrambe le sessioni con destinazione `/gioca`. Rischio residuo: l'ambiente agente non può avviare l'app perché il database locale è in sola lettura.
+
+### AQ-058 — Ripristinare l'avvio della manche successiva dalla regia
+
+- Stato: `DONE`
+- Priorità: P0
+- Dipendenze: AQ-049
+- Obiettivo: consentire alla regia di avviare la manche successiva dopo la conclusione di quella corrente, anche per partite create con ordini manche duplicati dal comportamento precedente.
+- Criteri di accettazione:
+  - dopo la conclusione di una manche non finale, la regia mostra l'azione `Avvia manche successiva`;
+  - l'azione avvia la prima domanda valida della manche determinata dall'ordinamento condiviso tra motore e UI;
+  - la rilevazione della manche successiva resta corretta quando più manche esistenti hanno lo stesso valore `Ordine`;
+  - le nuove partite assegnano alle manche un ordine progressivo stabile e l'aggiunta di una manche usa l'ordine successivo disponibile;
+  - dopo l'avvio vengono aggiornati manche corrente, domanda corrente, fase, timer, regia, proiettore e client squadra;
+  - alla conclusione dell'ultima manche viene proposta la conclusione della partita e non l'avvio di una manche inesistente;
+  - refresh e riavvio dell'app ricostruiscono correttamente la manche corrente.
+- Validazione: test di regressione con due manche con `Ordine` duplicato e una terza con `Ordine` distinto, recupero su nuovo contesto, conclusione dell'ultima manche, suite completa (105 casi) e build completati.
+- TestUmano: DA ESEGUIRE — Con un `appsettings.Local.json` amministrativo e un database SQLite scrivibile, creare una partita con almeno due manche, concludere la prima dalla regia e verificare che appaia `Avvia manche successiva`; premerlo e verificare su regia, proiettore e client squadra la prima domanda della seconda manche senza refresh. Ripetere con due manche aventi lo stesso ordine e verificare che l'ultima mostri solo `Concludi partita`. Rischio residuo: l'ambiente agente non può avviare l'app sul database SQLite locale in sola lettura.
 
 ### AQ-050 — Ridisegnare la vista proiettore e i risultati della domanda
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
-- Dipendenze: AQ-049
+- Dipendenze: AQ-058
 - Obiettivo: rendere la vista proiettore pulita, leggibile durante la visualizzazione del qr e delle domande / risposte.
 - Criteri di accettazione:
   - le risposte A/B/C/D hanno quattro colori basici, distinti e leggibili anche da lontano;
@@ -415,12 +439,16 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - durante la domanda non vengono mostrati conteggi o statistiche parziali;
   - dopo la chiusura sono mostrati conteggi di risposte corrette, errate e astensioni;
   - dopo la chiusura viene mostrata la squadra con la risposta valida più veloce; in caso di parità il risultato è esplicito;
-  - il layout resta lineare, contrastato e leggibile nelle fasi lobby, domanda, soluzione e classifica.
-- Validazione: test del view model per conteggi, astensioni, risposta più veloce e parità, più verifica visiva del proiettore.
+  - il layout resta lineare, contrastato e leggibile nelle fasi lobby, domanda, soluzione e classifica;
+  - nessuna informazione tecnica o in inglese, come gli enum di fase, viene mostrata al pubblico;
+  - le informazioni essenziali restano visibili senza scorrimento e senza dipendere dalla sola percezione del colore;
+  - il layout si adatta a proiettori e TV 4:3 o 16:9 senza assumere una risoluzione o un rapporto d'aspetto specifici.
+- Validazione: test del view model per conteggi, astensioni, risposta più veloce e parità, suite completa (107 casi) e build completati.
+- TestUmano: DA ESEGUIRE — Avviare l'app con il database della serata, aprire il proiettore in 800×600, 1024×768, 1280×720, 1920×1080 e 3840×2160. Verificare nelle fasi lobby, domanda, soluzione e classifica che titolo, QR o domanda, quattro opzioni e risultati essenziali siano leggibili senza scorrimento; nella soluzione verificare ✓ verde con contorno e glow oro sulla risposta corretta, ✕ rossa e sfondo grigio disabilitato sulle altre opzioni, conteggi corretti/errati/astensioni e il messaggio di parità della risposta valida più veloce. Durante la domanda verificare che l'icona timer, i secondi e la barra al 90% della pagina compaiano tra domanda e risposte, diminuendo fluidamente dal 100% fino a zero al passaggio da `2 s` a `1 s`; la risposta deve restare accettabile fino allo zero. Dopo la scadenza verificare che timer e barra restino nello stesso punto con `0 s`, icona timeout e stile grigio. Rischio residuo: il browser locale ha negato l'apertura dell'URL dell'app durante la verifica agente.
 
 ### AQ-051 — Clonare una partita
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-050
 - Obiettivo: permettere all'admin di creare una nuova partita partendo dalla configurazione di una partita di test o precedente, mantenendo manche e domande ma ricominciando con dati di serata puliti.
@@ -432,13 +460,32 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - non vengono copiati squadre, password, sessioni, risposte, punteggi, classifiche, annullamenti o stato runtime della partita sorgente;
   - la partita clonata parte in stato di preparazione e non diventa attiva automaticamente: l'admin può selezionarla esplicitamente e far iscrivere nuove squadre;
   - un errore durante la clonazione non lascia una partita parzialmente creata.
-- Validazione: test del servizio/database con una partita sorgente popolata e già giocata, verifica che la configurazione sia completa e che i dati di partecipazione risultino vuoti, più smoke test dalla dashboard.
+- Validazione: test del servizio/database con una partita sorgente popolata e già giocata, rollback forzato su errore di salvataggio, suite completa (109 casi) e build completati.
+- TestUmano: DA ESEGUIRE — Accedere alla dashboard, scegliere `Clona` su una partita già giocata, inserire un titolo e confermare. Verificare il redirect alla configurazione della nuova partita, la presenza di manche/domande/regole della sorgente e l'assenza di squadre, risposte, punteggi e stato attivo; controllare che la sorgente non cambi. Rischio residuo: lo smoke browser locale non è eseguibile nell'ambiente di automazione, mentre il percorso dati è coperto dai test d'integrazione.
+
+### AQ-060 — Ridisegnare la pagina giocatore per smartphone
+
+- Stato: `DONE`
+- Priorità: P1
+- Dipendenze: AQ-051
+- Obiettivo: rendere la pagina giocatore mobile coerente con la vista proiettore, mantenendo invariati timer, accettazione delle risposte e regole di gioco autorevoli sul server.
+- Criteri di accettazione:
+  - domanda, opzioni A/B/C/D, colori, bordi, icone e spaziature riprendono il linguaggio visivo del proiettore e restano leggibili su smartphone senza scorrimento orizzontale;
+  - durante la domanda il countdown mostra l'icona, i secondi e una barra fluida coerente con il proiettore, senza modificare la scadenza effettiva o l'accettazione server-authoritative della risposta;
+  - dopo la conferma, l'opzione scelta dalla squadra è riconoscibile con un glow blu di selezione, distinto dagli stati di esito;
+  - alla chiusura, la risposta corretta mostra spunta verde e contorno/glow oro; le risposte errate mostrano una X rossa e uno stato grigio disabilitato;
+  - se la squadra ha selezionato una risposta errata, rimangono visibili contemporaneamente il glow blu della scelta della squadra e il glow verde/oro della risposta corretta; se ha scelto quella corretta, prevale lo stato di risposta corretta;
+  - in caso di astensione non viene mostrato alcun glow di selezione e resta evidenziata soltanto la risposta corretta;
+  - la soluzione e gli esiti personali non vengono mai inclusi nella vista o nel payload prima della chiusura della domanda;
+  - non vengono introdotte dipendenze da Internet o nuove librerie UI.
+- Validazione: test del view model per domanda aperta, countdown con durata standard e override, risposta confermata, risposta corretta, risposta errata con doppia evidenza e astensione; suite completa (110 casi) e build completati.
+- TestUmano: DA ESEGUIRE — Su uno smartphone o browser a 360 px, accedere a una squadra e provare domanda aperta, risposta confermata, soluzione con risposta corretta, errata e astenuta. Verificare timer a icona/barra, nessuno scorrimento orizzontale, glow blu della scelta errata contemporaneo a verde/oro della soluzione e assenza di soluzione prima della chiusura. Rischio residuo: lo smoke dell'istanza locale non è eseguibile nell'automazione perché SQLite non può creare il database in `%LocalAppData%`; stati e payload sono coperti dai test del view model.
 
 ### AQ-041 — Ripulire residui del prototipo e avvisi
 
-- Stato: `PLANNED`
+- Stato: `BLOCKED`
 - Priorità: P2
-- Dipendenze: AQ-040, AQ-044, AQ-045, AQ-046, AQ-047, AQ-048, AQ-049, AQ-050, AQ-051
+- Dipendenze: AQ-040, AQ-044, AQ-045, AQ-046, AQ-047, AQ-048, AQ-049, AQ-050, AQ-051, AQ-060
 - Obiettivo: rimuovere pagine demo, codice commentato, campi inutilizzati e avvisi non giustificati senza rifattorizzazioni architetturali.
 - Criteri di accettazione:
   - nessuna pagina template raggiungibile;
@@ -446,6 +493,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - dipendenze vulnerabili o incoerenti risolte con versioni compatibili;
   - rinomina dei refusi valutata separatamente per impatto.
 - Validazione: build, test e controllo navigazione.
+- Blocco: l'ambiente non può raggiungere `https://api.nuget.org/v3/index.json` (connessione deviata a `127.0.0.1:9`), quindi non è possibile ripristinare e verificare l'aggiornamento EF Core 10.0.11 che risolve le dipendenze vulnerabili. Ripristinare l'accesso a NuGet e aggiornare tutti i riferimenti EF Core alla stessa patch 10.0.11, quindi rieseguire restore, test e build.
 
 ### AQ-042 — Preparare distribuzione Windows offline
 
@@ -475,6 +523,116 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - risultati e limiti documentati.
 - Validazione: test di carico locale ripetibile.
 
+## Milestone M5 — Esperienza d'uso e manutenzione dei dati
+
+### AQ-052 — Completare la configurazione delle regole di manche
+
+- Stato: `PLANNED`
+- Priorità: P0
+- Dipendenze: AQ-043
+- Obiettivo: rendere configurabili e coerenti con il motore di punteggio tutte le regole previste per una manche.
+- Criteri di accettazione:
+  - la configurazione espone punti base, malus base, moltiplicatore della manche, durata standard e numero massimo di astensioni gratuite;
+  - il malus base predefinito è 500 e le nuove manche non disattivano implicitamente la penalità per errore;
+  - la UI non espone stati tecnici o opzioni che il server rifiuta successivamente;
+  - i valori esistenti vengono caricati e salvati senza perdita;
+  - la validazione usa messaggi italiani e impedisce valori non ammessi prima del salvataggio.
+- Validazione: test dei valori predefiniti e del round-trip di tutte le regole, suite completa, build e smoke test della configurazione.
+
+### AQ-053 — Guidare la preparazione della partita
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-052
+- Obiettivo: trasformare la preparazione in un percorso comprensibile da dati iniziali a lobby pronta, senza richiedere la conoscenza degli stati interni.
+- Criteri di accettazione:
+  - il percorso mostra chiaramente i passaggi dati partita, manche, domande, squadre e verifica finale;
+  - la creazione di una partita porta direttamente alla sua configurazione;
+  - lo stato `Pronta` viene raggiunto tramite un'azione esplicita accompagnata da una checklist dei requisiti mancanti;
+  - gli stati tecnici non sono modificabili tramite selettori generici;
+  - l'utente può tornare ai passaggi precedenti senza perdere modifiche già salvate;
+  - dashboard e navigazione distinguono preparazione, conduzione della serata e storico.
+- Validazione: test delle transizioni esposte dalla UI e smoke test completo dalla creazione alla lobby.
+
+### AQ-054 — Definire un'identità visiva coerente e responsive
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-053
+- Obiettivo: sostituire l'aspetto da template con un sistema visivo caldo e riconoscibile, adatto a un'associazione culturale e coerente tra amministrazione, regia e client squadra.
+- Criteri di accettazione:
+  - colori, tipografia, spaziature, bordi, stati e azioni usano variabili e componenti condivisi senza introdurre una nuova libreria UI;
+  - azioni primarie, secondarie e distruttive sono distinguibili anche quando disabilitate;
+  - form, tabelle, messaggi e stati vuoti hanno una gerarchia visiva uniforme;
+  - l'area amministrativa resta utilizzabile sul monitor di un portatile e degrada correttamente a larghezze ridotte;
+  - focus, contrasto e significato delle azioni non dipendono soltanto dal colore;
+  - la personalizzazione non modifica i comportamenti funzionali già verificati.
+- Validazione: controllo accessibilità di base, smoke test delle pagine principali e confronto visivo a larghezze desktop e ridotte.
+
+### AQ-055 — Archiviare e ripristinare il catalogo domande
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-054
+- Obiettivo: gestire cataloghi di alcune centinaia di domande e consentire la sostituzione di un set importato senza rompere partite o storico.
+- Criteri di accettazione:
+  - l'eliminazione singola viene presentata come archiviazione e continua a usare il soft delete;
+  - un comando esplicito consente di archiviare in blocco le domande attualmente disponibili;
+  - le domande usate da partite non concluse vengono protette e il riepilogo indica quante non sono state archiviate;
+  - le domande usate soltanto da partite concluse possono essere archiviate senza alterare storico, risultati o visualizzazione delle partite passate;
+  - le domande archiviate non compaiono nel catalogo ordinario né tra quelle associabili a nuove manche;
+  - un filtro dedicato permette di vedere e ripristinare le domande archiviate;
+  - filtri e operazioni restano adeguati a cataloghi di alcune centinaia di elementi.
+- Validazione: test di archiviazione singola, massiva, protezione delle partite non concluse, ripristino e integrità dello storico; smoke test dopo importazione CSV.
+
+### AQ-056 — Creare backup SQLite verificabili
+
+- Stato: `PLANNED`
+- Priorità: P0
+- Dipendenze: AQ-055
+- Obiettivo: creare una copia consistente e comprensibile del database prima delle operazioni distruttive e permettere all'utente di individuarla.
+- Criteri di accettazione:
+  - il backup usa una modalità compatibile con SQLite aperto e include tutte le transazioni concluse;
+  - il file riceve un nome con data e ora in una cartella locale documentata;
+  - il backup viene aperto e verificato prima di dichiarare l'operazione riuscita;
+  - un errore di backup impedisce l'avvio del reset;
+  - la UI mostra percorso, esito e istruzioni essenziali di conservazione senza esporre dettagli tecnici inutili.
+- Validazione: test su database popolato, verifica di apertura e conteggi della copia, simulazione di errore e build completa.
+
+### AQ-057 — Aggiungere pulizia dello storico e reset completo
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-056
+- Obiettivo: permettere all'amministratore di svuotare i dati operativi in modo intenzionale, atomico e recuperabile.
+- Criteri di accettazione:
+  - sono disponibili due operazioni distinte: eliminare serate e risultati conservando il catalogo, oppure eseguire il reset completo di tutti i dati applicativi;
+  - entrambe mostrano prima i conteggi di partite, manche, squadre, risposte, statistiche e domande interessate;
+  - nessuna operazione è consentita mentre una partita è in corso;
+  - il reset completo richiede la digitazione di `RESET ARCIQUIZ` e un backup automatico riuscito;
+  - partite, manche, squadre, sessioni, risposte, punteggi e statistiche vengono rimossi rispettando le relazioni; nel reset completo vengono rimosse anche le domande;
+  - schema, migrazioni e credenziale amministrativa locale restano disponibili;
+  - stato runtime e sessioni squadra vengono invalidati senza richiedere il riavvio dell'app;
+  - un errore non lascia un ambiente parzialmente cancellato.
+- Validazione: test transazionali dei due livelli di pulizia, vincoli FK, blocco durante la partita, backup obbligatorio, rollback su errore e smoke test di ripartenza da ambiente vuoto.
+
+### AQ-059 — Aggiungere domande casuali filtrate alla manche
+
+- Stato: `PLANNED`
+- Priorità: P1
+- Dipendenze: AQ-057
+- Obiettivo: velocizzare la composizione di una manche permettendo di aggiungere in una sola operazione un numero configurabile di domande scelte casualmente tra quelle disponibili dopo il filtro.
+- Criteri di accettazione:
+  - la sezione `Aggiungi domande` espone filtri distinti per categoria e difficoltà, oltre all'eventuale ricerca testuale;
+  - ogni filtro consente di selezionare tutti i valori oppure un valore tra quelli ammessi dal catalogo;
+  - il numero di domande disponibili viene aggiornato immediatamente quando cambia un filtro ed esclude domande archiviate, non valide o già associate a una manche della stessa partita;
+  - un campo numerico consente di scegliere una quantità compresa tra 1 e il numero di domande disponibili dopo il filtro;
+  - il comando `Aggiungi domande casuali` seleziona la quantità richiesta senza ripetizioni e associa tutte le domande alla manche con indici consecutivi in coda a quelle esistenti;
+  - quando non esistono domande disponibili, quantità e comando risultano disabilitati e viene mostrato un messaggio esplicito;
+  - se la quantità non è valida o le disponibilità cambiano prima del salvataggio, nessuna associazione parziale viene lasciata nel database e l'utente riceve un messaggio comprensibile;
+  - resta disponibile l'aggiunta manuale della singola domanda dai risultati filtrati.
+- Validazione: test dei filtri combinati, dei limiti 1 e numero massimo disponibile, dell'estrazione senza duplicati, dell'ordine assegnato, dell'atomicità in caso di conflitto e smoke test della pagina con catalogo popolato.
+
 ## Decisioni ancora non trasformate in task
 
-Nessuna decisione funzionale blocca `AQ-001`. Eventuali nuove esigenze vanno registrate in `DECISIONS.md` e poi trasformate in task atomici senza interrompere l'ordine corrente, salvo priorità esplicita del proprietario.
+Le decisioni correnti sono rappresentate nei task della coda. Eventuali nuove esigenze vanno registrate in `DECISIONS.md` e poi trasformate in task atomici senza interrompere l'ordine corrente, salvo priorità esplicita del proprietario.

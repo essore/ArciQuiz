@@ -335,16 +335,22 @@ else
     {
         if (_partita is null) return;
 
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var ordineSuccessivo = (await db.Manches
+            .Where(item => item.PartitaId == _partita.Id)
+            .Select(item => (int?)item.Ordine)
+            .MaxAsync() ?? 0) + 1;
+
         var nuova = new Manche
         {
             PartitaId = _partita.Id,
+            Ordine = ordineSuccessivo,
             TempoRispostaSecondi = 20,
             PuntiBase = 2000,
             PenalitaErrore = false,
             MaxAstensioni = 3
         };
 
-        await using var db = await DbFactory.CreateDbContextAsync();
         db.Manches.Add(nuova);
         await db.SaveChangesAsync();
 

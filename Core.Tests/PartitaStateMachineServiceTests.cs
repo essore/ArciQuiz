@@ -106,6 +106,52 @@ public class PartitaStateMachineServiceTests
     }
 
     [Fact]
+    public async Task AvviaMancheSuccessiva_ConOrdiniDuplicati_SegueLOrdinamentoStabileEPersistito()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var secondaManche = await test.Database.Manches.SingleAsync(item => item.Id == test.SecondaMancheId);
+        secondaManche.Ordine = 1;
+
+        var terzaManche = new Manche
+        {
+            PartitaId = test.PartitaId,
+            Ordine = 2,
+            Stato = MancheStato.Pronta
+        };
+        var quartaDomanda = TestDatabase.CreateQuestion(terzaManche, 1, "Quarta domanda");
+        test.Database.AddRange(terzaManche, quartaDomanda);
+        await test.Database.SaveChangesAsync();
+
+        Assert.True((await PartitaStateMachineService.AvviaPartitaAsync(test.Database, test.PartitaId)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.ChiudiDomandaAsync(test.Database, test.PartitaId, test.PrimaDomandaId)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.AvviaDomandaSuccessivaAsync(test.Database, test.PartitaId, test.PrimaDomandaId)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.ChiudiDomandaAsync(test.Database, test.PartitaId, test.SecondaDomandaId)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.MostraClassificaAsync(test.Database, test.PartitaId, test.SecondaDomandaId)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.ConcludiMancheAsync(test.Database, test.PartitaId, test.PrimaMancheId)).IsSuccess);
+
+        Assert.True((await PartitaStateMachineService.AvviaMancheSuccessivaAsync(test.Database, test.PartitaId, test.PrimaMancheId)).IsSuccess);
+        var secondRoundState = await PartitaStateMachineService.CaricaStatoAsync(test.Database, test.PartitaId);
+        Assert.Equal(test.SecondaMancheId, secondRoundState!.MancheId);
+        Assert.Equal(test.TerzaDomandaId, secondRoundState.MancheDomandaId);
+
+        Assert.True((await PartitaStateMachineService.ChiudiDomandaAsync(test.Database, test.PartitaId, test.TerzaDomandaId)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.MostraClassificaAsync(test.Database, test.PartitaId, test.TerzaDomandaId)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.ConcludiMancheAsync(test.Database, test.PartitaId, test.SecondaMancheId)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.AvviaMancheSuccessivaAsync(test.Database, test.PartitaId, test.SecondaMancheId)).IsSuccess);
+
+        await using var reopened = new ArciQuizDbContext(test.Options);
+        var persistedState = await PartitaStateMachineService.CaricaStatoAsync(reopened, test.PartitaId);
+        Assert.Equal(terzaManche.Id, persistedState!.MancheId);
+        Assert.Equal(quartaDomanda.Id, persistedState.MancheDomandaId);
+        Assert.Equal(GamePhase.ShowingQuestion, persistedState.Phase);
+
+        Assert.True((await PartitaStateMachineService.ChiudiDomandaAsync(test.Database, test.PartitaId, quartaDomanda.Id)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.MostraClassificaAsync(test.Database, test.PartitaId, quartaDomanda.Id)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.ConcludiMancheAsync(test.Database, test.PartitaId, terzaManche.Id)).IsSuccess);
+        Assert.True((await PartitaStateMachineService.ConcludiPartitaAsync(test.Database, test.PartitaId)).IsSuccess);
+    }
+
+    [Fact]
     public async Task Migrazione_FasePartitaEsistente_DerivaLoStatoPersistito()
     {
         var path = Path.Combine(Path.GetTempPath(), $"arciquiz-state-migration-{Guid.NewGuid():N}.db");
@@ -183,7 +229,7 @@ public class PartitaStateMachineServiceTests
             };
         }
 
-        private static MancheDomanda CreateQuestion(Manche manche, int index, string text) => new()
+        public static MancheDomanda CreateQuestion(Manche manche, int index, string text) => new()
         {
             Manche = manche,
             Index = index,

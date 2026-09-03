@@ -36,6 +36,7 @@ public sealed record PlayerGameView(
     IReadOnlyList<PlayerAnswerOption> Options,
     char? CorrectAnswer,
     DateTimeOffset? DeadlineUtc,
+    int? DurationSeconds,
     int? MancheDomandaId,
     char? RecordedAnswer,
     PlayerAnswerFeedback? AnswerFeedback);
@@ -79,6 +80,8 @@ public static class PlayerGameViewService
                 {
                     item.Index,
                     item.ScadenzaUtc,
+                    item.DurataSecondiOverride,
+                    TempoRispostaSecondi = item.Manche!.TempoRispostaSecondi,
                     item.Domanda!.Testo,
                     item.Domanda.RispostaA,
                     item.Domanda.RispostaB,
@@ -124,8 +127,11 @@ public static class PlayerGameViewService
             options,
             screen == PlayerGameScreen.Solution ? question?.RispostaEsatta : null,
             screen == PlayerGameScreen.Question ? question?.ScadenzaUtc : null,
+            screen == PlayerGameScreen.Question && question is not null
+                ? question.DurataSecondiOverride ?? question.TempoRispostaSecondi
+                : null,
             screen == PlayerGameScreen.Question ? player.CurrentMancheDomandaId : null,
-            screen == PlayerGameScreen.Question && player.CurrentMancheDomandaId.HasValue
+            (screen is PlayerGameScreen.Question or PlayerGameScreen.Solution) && player.CurrentMancheDomandaId.HasValue
                 ? await database.ManchesRisposte
                     .AsNoTracking()
                     .Where(item => item.PlayerId == playerId && item.MancheDomandaId == player.CurrentMancheDomandaId.Value)

@@ -1,5 +1,6 @@
 using Core.Entities;
 using Core.Enums;
+using Core.Services;
 using Infrasctructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -64,7 +65,7 @@ public static class PartitaStateMachineService
         if (partita.Stato != PartitaStato.Pronta || partita.Fase != GamePhase.Lobby)
             return PartitaTransitionResult.Error("La partita può iniziare soltanto dalla lobby.");
 
-        var primaManche = OrderedManches(partita).FirstOrDefault();
+        var primaManche = MancheOrderingService.Order(partita.Manches).FirstOrDefault();
         var primaDomanda = primaManche is null ? null : OrderedQuestions(primaManche).FirstOrDefault();
         if (primaManche is null || primaDomanda is null)
             return PartitaTransitionResult.Error("La partita non contiene una manche giocabile.");
@@ -206,9 +207,7 @@ public static class PartitaStateMachineService
         if (partita.Fase != GamePhase.RoundEnded || partita.CurrentMancheId != mancheConclusaId)
             return PartitaTransitionResult.Error("La manche corrente non è ancora conclusa.");
 
-        var manches = OrderedManches(partita);
-        var currentIndex = manches.FindIndex(item => item.Id == mancheConclusaId);
-        var mancheSuccessiva = currentIndex >= 0 ? manches.Skip(currentIndex + 1).FirstOrDefault() : null;
+        var mancheSuccessiva = MancheOrderingService.GetNext(partita.Manches, mancheConclusaId);
         var primaDomanda = mancheSuccessiva is null ? null : OrderedQuestions(mancheSuccessiva).FirstOrDefault();
         if (mancheSuccessiva is null || primaDomanda is null)
             return PartitaTransitionResult.Error("Non ci sono altre manche: concludere la partita.");
@@ -234,7 +233,7 @@ public static class PartitaStateMachineService
         if (partita.Fase != GamePhase.RoundEnded || partita.CurrentMancheId is null)
             return PartitaTransitionResult.Error("La partita può concludersi solo dopo la fine dell'ultima manche.");
 
-        var manches = OrderedManches(partita);
+        var manches = MancheOrderingService.Order(partita.Manches);
         if (manches.LastOrDefault()?.Id != partita.CurrentMancheId || manches.Any(item => item.Stato != MancheStato.Conclusa))
             return PartitaTransitionResult.Error("Ci sono ancora manche da giocare.");
 
@@ -256,9 +255,6 @@ public static class PartitaStateMachineService
             .Include(item => item.Manches)
                 .ThenInclude(item => item.Domande)
             .FirstOrDefaultAsync(item => item.Id == partitaId, cancellationToken);
-
-    private static List<Manche> OrderedManches(Partita partita) =>
-        partita.Manches.OrderBy(item => item.Ordine).ThenBy(item => item.Id).ToList();
 
     private static List<MancheDomanda> OrderedQuestions(Manche manche) =>
         manche.Domande

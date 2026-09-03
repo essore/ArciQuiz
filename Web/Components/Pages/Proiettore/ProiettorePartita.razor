@@ -28,20 +28,10 @@ else if (_view is null)
 }
 else
 {
-    <div class="container-fluid" style="padding:2rem;">
-        <div class="mb-4 d-flex justify-content-between">
-            <div>
-                <h1 style="font-size:3rem;">@_view.PartitaTitolo</h1>
-                <p style="font-size:1.4rem;">
-                    Manche: @(_view.MancheId?.ToString() ?? "—") ·
-                    Stato: @_view.MancheStato
-                </p>
-            </div>
+    <main class="projector-shell">
+        <header class="projector-header">
             <div class="text-end">
-                <p style="font-size:1.2rem;">
-                    Phase: @_view.Phase
-                </p>
-                @if (_view.Domanda is not null)
+                @if (_view.MostraQr && _view.Domanda is not null)
                 {
                     <LanQr Title="Rientra nel gioco"
                            RelativePath="/gioca"
@@ -50,12 +40,12 @@ else
                            CssClass="d-inline-block" />
                 }
             </div>
-        </div>
+        </header>
 
         @if (_view.Classifica is not null)
         {
-            <section class="mx-auto" style="max-width:70rem;">
-                <h2 class="text-center mb-4" style="font-size:2.5rem;">@_view.TitoloClassifica</h2>
+            <section class="leaderboard-shell">
+                <h2 class="leaderboard-title">@_view.TitoloClassifica</h2>
                 @if (_view.MostraPodio)
                 {
                     <div class="row text-center mb-5" aria-label="Podio">
@@ -84,69 +74,83 @@ else
         }
         else if (_view.Domanda is null)
         {
-            <div class="d-flex justify-content-center align-items-center" style="height:60vh; flex-direction:column; gap:1rem;">
-                <h2 style="font-size:3rem;">@_view.PlaceholderText</h2>
+            <div class="projector-placeholder">
+                <h2>@_view.PlaceholderText</h2>
 
-                <LanQr Title="Scansiona per partecipare"
-                       RelativePath="/gioca"
-                       MaxWidthPx="320"
-                       ShowLink="false"
-                       CssClass="mt-0" />
+                @if (_view.MostraQr)
+                {
+                    <LanQr Title="Scansiona per partecipare"
+                           RelativePath="/gioca"
+                           MaxWidthPx="320"
+                           ShowLink="false"
+                           CssClass="mt-0" />
+                }
             </div>
         }
         else
         {
-            <div class="mb-4">
-                <h2 style="font-size:2.5rem;">
+            <section>
+                <h2 class="question-title">
                     Domanda @_view.Domanda.Index
                 </h2>
-                <h3 style="font-size:2rem; margin-top:1rem;">
+                <h3 class="question-text">
                     @_view.Domanda.Testo
                 </h3>
-                <p class="text-muted" style="font-size:1.2rem; margin-top:0.5rem;">
+                <p class="question-meta">
                     Categoria: @_view.Domanda.Categoria · Difficoltà: @_view.Domanda.Difficolta
                 </p>
+            </section>
+
+            @if (_view.PhaseEndsAtUtc.HasValue)
+            {
+                <div class="question-countdown"><ProjectorCountdown EndsAtUtc="_view.PhaseEndsAtUtc.Value" DurationSeconds="_view.DurationSeconds" IsTimedOut="_view.MostraSoluzione" /></div>
+            }
+
+            <div class="answer-grid" aria-label="Opzioni di risposta">
+                <div class="answer-card answer-a @AnswerResultClass('A')">
+                    <span class="answer-letter">A</span><span class="answer-content"><span>@_view.Domanda.RispostaA</span>@AnswerResultIcon('A')</span>
+                </div>
+                <div class="answer-card answer-b @AnswerResultClass('B')">
+                    <span class="answer-letter">B</span><span class="answer-content"><span>@_view.Domanda.RispostaB</span>@AnswerResultIcon('B')</span>
+                </div>
+                <div class="answer-card answer-c @AnswerResultClass('C')">
+                    <span class="answer-letter">C</span><span class="answer-content"><span>@_view.Domanda.RispostaC</span>@AnswerResultIcon('C')</span>
+                </div>
+                <div class="answer-card answer-d @AnswerResultClass('D')">
+                    <span class="answer-letter">D</span><span class="answer-content"><span>@_view.Domanda.RispostaD</span>@AnswerResultIcon('D')</span>
+                </div>
             </div>
 
-            <div class="row" style="font-size:1.8rem;">
-                <div class="col-md-6 mb-3">
-                    <div class="border rounded p-3"><strong>A)</strong> @_view.Domanda.RispostaA</div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <div class="border rounded p-3"><strong>B)</strong> @_view.Domanda.RispostaB</div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <div class="border rounded p-3"><strong>C)</strong> @_view.Domanda.RispostaC</div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <div class="border rounded p-3"><strong>D)</strong> @_view.Domanda.RispostaD</div>
-                </div>
-            </div>
-
-            <div class="mt-4 text-muted" style="font-size:1.2rem;">
-                @if (_view.MostraSoluzione)
-                {
-                    <strong>Soluzione corretta: @_view.Domanda.RispostaEsatta</strong>
-                    <div class="row mt-3 text-center" aria-label="Distribuzione risposte">
-                        <div class="col-3"><strong>A</strong><br />@_view.DistribuzioneRisposte!.AnswerA</div>
-                        <div class="col-3"><strong>B</strong><br />@_view.DistribuzioneRisposte.AnswerB</div>
-                        <div class="col-3"><strong>C</strong><br />@_view.DistribuzioneRisposte.AnswerC</div>
-                        <div class="col-3"><strong>D</strong><br />@_view.DistribuzioneRisposte.AnswerD</div>
+            @if (_view.MostraSoluzione)
+            {
+                <section aria-label="Risultati della domanda">
+                    <div class="results-grid">
+                        <div class="result-card correct"><span>Risposte corrette</span><strong>@_view.RisultatiDomanda!.CorrectAnswers</strong></div>
+                        <div class="result-card incorrect"><span>Risposte errate</span><strong>@_view.RisultatiDomanda.IncorrectAnswers</strong></div>
+                        <div class="result-card abstained"><span>Astensioni</span><strong>@_view.RisultatiDomanda.Abstentions</strong></div>
                     </div>
-                }
-                else if (_view.PhaseEndsAtUtc.HasValue)
-                {
-                    <div style="font-size:2rem;">
-                        Tempo rimasto: <ServerCountdown EndsAtUtc="_view.PhaseEndsAtUtc.Value" />
+                    <div class="fastest-answer">
+                        @if (_view.RisultatiDomanda.FastestAnswer is null)
+                        {
+                            <span>Risposta valida più veloce</span><strong>Nessuna risposta valida</strong>
+                        }
+                        else if (_view.RisultatiDomanda.FastestAnswer.IsTie)
+                        {
+                            <span>Risposte valide più veloci, a pari tempo</span><strong>@string.Join(" e ", _view.RisultatiDomanda.FastestAnswer.TeamNames) — @FormatElapsedTime(_view.RisultatiDomanda.FastestAnswer.ElapsedMilliseconds)</strong>
+                        }
+                        else
+                        {
+                            <span>Risposta valida più veloce</span><strong>@_view.RisultatiDomanda.FastestAnswer.TeamNames[0] — @FormatElapsedTime(_view.RisultatiDomanda.FastestAnswer.ElapsedMilliseconds)</strong>
+                        }
                     </div>
-                }
-                else
-                {
-                    <span>In attesa delle risposte dei giocatori...</span>
-                }
-            </div>
+                </section>
+            }
+            else if (!_view.PhaseEndsAtUtc.HasValue)
+            {
+                <div class="question-status">In attesa delle risposte dei giocatori...</div>
+            }
         }
-    </div>
+    </main>
 }
 
 @code {
@@ -179,12 +183,13 @@ else
             });
         });
 
-        await using var db = await DbFactory.CreateDbContextAsync();
-        var persistedState = await PartitaStateMachineService.CaricaStatoAsync(db, PartitaId, Clock);
-        if (persistedState is not null)
+        var state = GameState.Current.PartitaId == PartitaId
+            ? GameState.Current
+            : await LoadPersistedStateAsync();
+        if (state is not null)
         {
-            await LoadFromStateAsync(persistedState);
-            _lastVersion = persistedState.Version;
+            await LoadFromStateAsync(state);
+            _lastVersion = state.Version;
         }
 
         _isLoading = false;
@@ -212,9 +217,6 @@ else
             _view = new ProjectorViewModel
             {
                 PartitaTitolo = partitaClassifica.Titolo,
-                MancheId = mancheClassifica?.Id,
-                MancheStato = mancheClassifica?.Stato.ToString() ?? "—",
-                Phase = state.Phase.ToString(),
                 TitoloClassifica = state.Phase switch
                 {
                     GamePhase.RoundEnded => $"Classifica dopo la manche {mancheClassifica?.Ordine}",
@@ -222,6 +224,7 @@ else
                     _ => "Classifica parziale"
                 },
                 MostraPodio = state.Phase == GamePhase.Closed,
+                MostraQr = state.IsQrVisible,
                 Classifica = await LeaderboardService.LoadAsync(db, state.PartitaId)
             };
             return;
@@ -232,7 +235,7 @@ else
         {
             _view = new ProjectorViewModel
             {
-                Phase = state.Phase.ToString(),
+                MostraQr = state.IsQrVisible,
                 PlaceholderText = state.Phase switch
                 {
                     GamePhase.Waiting => "In attesa della regia...",
@@ -266,9 +269,7 @@ else
             _view = new ProjectorViewModel
             {
                 PartitaTitolo = partita.Titolo,
-                MancheId = state.MancheId,
-                MancheStato = manche?.Stato.ToString() ?? "—",
-                Phase = state.Phase.ToString(),
+                MostraQr = state.IsQrVisible,
                 PlaceholderText = "In attesa della prossima domanda..."
             };
             return;
@@ -277,13 +278,12 @@ else
         _view = new ProjectorViewModel
         {
             PartitaTitolo = partita.Titolo,
-            MancheId = manche.Id,
-            MancheStato = manche.Stato.ToString(),
-            Phase = state.Phase.ToString(),
+            MostraQr = state.IsQrVisible,
             MostraSoluzione = state.Phase == GamePhase.ShowingAnswers,
-            PhaseEndsAtUtc = state.PhaseEndsAtUtc,
-            DistribuzioneRisposte = state.Phase == GamePhase.ShowingAnswers
-                ? await ProjectorAnswerDistributionService.LoadAsync(db, md.Id)
+            PhaseEndsAtUtc = state.PhaseEndsAtUtc ?? md.ScadenzaUtc,
+            DurationSeconds = md.DurataSecondiOverride ?? manche.TempoRispostaSecondi,
+            RisultatiDomanda = state.Phase == GamePhase.ShowingAnswers
+                ? await ProjectorQuestionResultsService.LoadAsync(db, md.Id)
                 : null,
             Domanda = new DomandaVm
             {
@@ -300,19 +300,24 @@ else
         };
     }
 
+    private async Task<GameState?> LoadPersistedStateAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        return await PartitaStateMachineService.CaricaStatoAsync(db, PartitaId, Clock);
+    }
+
     public void Dispose() => _sub?.Dispose();
 
     private sealed class ProjectorViewModel
     {
         public string PartitaTitolo { get; set; } = "ArciQuiz";
-        public int? MancheId { get; set; }
-        public string MancheStato { get; set; } = "—";
-        public string Phase { get; set; } = "—";
         public string PlaceholderText { get; set; } = "In attesa...";
         public bool MostraSoluzione { get; set; }
+        public bool MostraQr { get; set; } = true;
         public bool MostraPodio { get; set; }
         public DateTimeOffset? PhaseEndsAtUtc { get; set; }
-        public ProjectorAnswerDistribution? DistribuzioneRisposte { get; set; }
+        public int DurationSeconds { get; set; }
+        public ProjectorQuestionResults? RisultatiDomanda { get; set; }
         public string TitoloClassifica { get; set; } = "Classifica";
         public LeaderboardView? Classifica { get; set; }
 
@@ -331,4 +336,31 @@ else
         public string RispostaD { get; set; } = "";
         public char RispostaEsatta { get; set; }
     }
+
+    private bool IsCorrectAnswer(char answer) =>
+        _view?.MostraSoluzione == true && _view.Domanda?.RispostaEsatta == answer;
+
+    private string AnswerResultClass(char answer)
+    {
+        if (!_view?.MostraSoluzione ?? true)
+            return string.Empty;
+
+        return IsCorrectAnswer(answer) ? "is-correct" : "is-incorrect";
+    }
+
+    private RenderFragment AnswerResultIcon(char answer) => builder =>
+    {
+        if (_view?.MostraSoluzione != true)
+            return;
+
+        var isCorrect = IsCorrectAnswer(answer);
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", isCorrect ? "answer-result-icon correct" : "answer-result-icon incorrect");
+        builder.AddAttribute(2, "aria-label", isCorrect ? "Risposta corretta" : "Risposta errata");
+        builder.AddContent(3, isCorrect ? "✓" : "✕");
+        builder.CloseElement();
+    };
+
+    private static string FormatElapsedTime(int milliseconds) =>
+        TimeSpan.FromMilliseconds(milliseconds).TotalSeconds.ToString("0.0") + " s";
 }

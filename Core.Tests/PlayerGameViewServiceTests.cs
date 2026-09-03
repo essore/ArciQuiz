@@ -23,6 +23,7 @@ public class PlayerGameViewServiceTests
         Assert.Equal(4, result.View.Options.Count);
         Assert.Null(result.View.CorrectAnswer);
         Assert.Equal(NowUtc.AddSeconds(20), result.View.DeadlineUtc);
+        Assert.Equal(20, result.View.DurationSeconds);
     }
 
     [Fact]
@@ -35,6 +36,17 @@ public class PlayerGameViewServiceTests
         Assert.Equal(PlayerGameScreen.TimeExpired, result.View!.Screen);
         Assert.Null(result.View.CorrectAnswer);
         Assert.Null(result.View.DeadlineUtc);
+    }
+
+    [Fact]
+    public async Task LoadAsync_ShowingQuestion_UsesQuestionDurationOverrideForCountdown()
+    {
+        await using var test = await TestDatabase.CreateAsync(GamePhase.ShowingQuestion, NowUtc.AddSeconds(45), durationOverrideSeconds: 45);
+
+        var result = await PlayerGameViewService.LoadAsync(test.Database, test.PlayerId, test.SessionToken, new FixedTimeProvider(NowUtc));
+
+        Assert.Equal(PlayerGameScreen.Question, result.View!.Screen);
+        Assert.Equal(45, result.View.DurationSeconds);
     }
 
     [Fact]
@@ -55,6 +67,7 @@ public class PlayerGameViewServiceTests
 
         Assert.Equal(PlayerGameScreen.Solution, result.View!.Screen);
         Assert.Equal('B', result.View.CorrectAnswer);
+        Assert.Equal('B', result.View.RecordedAnswer);
         Assert.Equal(new PlayerAnswerFeedback(PlayerAnswerOutcome.Correct, 1500), result.View.AnswerFeedback);
     }
 
@@ -83,6 +96,7 @@ public class PlayerGameViewServiceTests
         var result = await PlayerGameViewService.LoadAsync(test.Database, test.PlayerId, test.SessionToken, new FixedTimeProvider(NowUtc));
 
         Assert.Equal(new PlayerAnswerFeedback(expectedOutcome, pointsChange), result.View!.AnswerFeedback);
+        Assert.Equal(answer == '\0' ? null : answer, result.View.RecordedAnswer);
     }
 
     [Fact]
@@ -102,6 +116,42 @@ public class PlayerGameViewServiceTests
         var distribution = ProjectorAnswerDistributionService.Create(['A', 'b', 'B', 'C', 'D', 'D', 'X']);
 
         Assert.Equal(new ProjectorAnswerDistribution(1, 2, 1, 2), distribution);
+    }
+
+    [Fact]
+    public void CreateQuestionResults_CountsOutcomesAndReportsFastestAnswerTie()
+    {
+        var results = ProjectorQuestionResultsService.Create(
+        [
+            new ProjectorQuestionAnswer("Falchi", false, true, 'B', 1300),
+            new ProjectorQuestionAnswer("Aquile", false, false, 'A', 900),
+            new ProjectorQuestionAnswer("Lupi", false, true, 'C', 900),
+            new ProjectorQuestionAnswer("Orsi", true, false, null, null),
+            new ProjectorQuestionAnswer("Volpi", false, true, 'B', 500)
+        ]);
+
+        Assert.Equal(3, results.CorrectAnswers);
+        Assert.Equal(1, results.IncorrectAnswers);
+        Assert.Equal(1, results.Abstentions);
+        Assert.NotNull(results.FastestAnswer);
+        Assert.False(results.FastestAnswer.IsTie);
+        Assert.Equal(["Volpi"], results.FastestAnswer.TeamNames);
+        Assert.Equal(500, results.FastestAnswer.ElapsedMilliseconds);
+    }
+
+    [Fact]
+    public void CreateQuestionResults_ReportsTeamsWithSameFastestTime()
+    {
+        var results = ProjectorQuestionResultsService.Create(
+        [
+            new ProjectorQuestionAnswer("Falchi", false, true, 'B', 900),
+            new ProjectorQuestionAnswer("Aquile", false, false, 'A', 900),
+            new ProjectorQuestionAnswer("Orsi", true, false, null, null)
+        ]);
+
+        Assert.NotNull(results.FastestAnswer);
+        Assert.True(results.FastestAnswer.IsTie);
+        Assert.Equal(["Aquile", "Falchi"], results.FastestAnswer.TeamNames);
     }
 
     [Theory]
@@ -164,7 +214,8 @@ public class PlayerGameViewServiceTests
         public static async Task<TestDatabase> CreateAsync(
             GamePhase phase,
             DateTimeOffset? deadlineUtc,
-            PartitaStato state = PartitaStato.InCorso)
+            PartitaStato state = PartitaStato.InCorso,
+            int? durationOverrideSeconds = null)
         {
             var path = Path.Combine(Path.GetTempPath(), $"arciquiz-player-view-{Guid.NewGuid():N}.db");
             var options = new DbContextOptionsBuilder<ArciQuizDbContext>().UseSqlite($"Data Source={path}").Options;
@@ -179,6 +230,7 @@ public class PlayerGameViewServiceTests
                 Manche = round,
                 Index = 3,
                 ScadenzaUtc = deadlineUtc,
+                DurataSecondiOverride = durationOverrideSeconds,
                 Domanda = new Domanda
                 {
                     Testo = "Qual è la risposta?",

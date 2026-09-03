@@ -21,6 +21,18 @@ public class GameStateServiceTests
         Assert.Equal(GamePhase.ShowingQuestion, secondState.Phase);
     }
 
+    [Fact]
+    public void SetState_PreservesQrVisibilityForTheCurrentGame()
+    {
+        var gameStateService = new GameStateService();
+
+        gameStateService.SetState(CreateState(GamePhase.Waiting));
+        gameStateService.SetQrVisibility(1, false);
+        gameStateService.SetState(CreateState(GamePhase.ShowingQuestion));
+
+        Assert.False(gameStateService.Current.IsQrVisible);
+    }
+
     private static GameState CreateState(GamePhase phase) => new(
         PartitaId: 1,
         MancheId: 1,

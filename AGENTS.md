@@ -41,7 +41,7 @@ Quando il proprietario avvia un agente senza assegnare un task specifico:
 4. applicare la modifica minima sufficiente;
 5. eseguire le verifiche richieste dal task;
 6. controllare il diff e lo stato Git;
-7. aggiornare il task a `DONE` oppure `BLOCKED`;
+7. aggiornare il task a `DONE` oppure `BLOCKED`, valutando prima se un test umano residuo blocca davvero i task successivi;
 8. aggiornare `docs/PROJECT_STATE.md` solo se lo stato reale del progetto è cambiato;
 9. aggiungere una voce a `docs/WORKLOG.md`;
 10. promuovere a `READY` il primo task `PLANNED` le cui dipendenze sono tutte concluse;
@@ -62,6 +62,19 @@ Se il proprietario assegna un task esplicito, quel task ha precedenza sulla coda
 - `DONE`: criteri di accettazione soddisfatti e verifiche registrate.
 
 Un task non può essere dichiarato `DONE` se la build o le verifiche richieste falliscono per effetto della modifica.
+
+## Test umani residui
+
+`TestUmano` è una dicitura di `docs/TODO.md`, non uno stato del task. Viene usata solo quando sviluppo e verifiche automatiche pertinenti sono riusciti, ma una prova manuale concreta non è eseguibile nell'ambiente dell'agente o richiede un dispositivo, un browser o un contesto fisico disponibile al proprietario.
+
+Prima di segnare un task `BLOCKED` per una verifica manuale mancante, valutare esplicitamente se il suo esito è necessario per proseguire in sicurezza con i task dipendenti:
+
+1. se può invalidare una regola funzionale, un contratto dati, la sicurezza o una base tecnica usata dai task successivi, il task resta `BLOCKED`;
+2. se verifica soltanto una resa o un'integrazione locale già coperta da test automatici e non condiziona i task successivi, il task può essere `DONE` con la voce `TestUmano: DA ESEGUIRE`;
+3. la voce deve indicare passi mirati, risultato atteso, contesto necessario e rischio residuo;
+4. dopo il collaudo, sostituire la voce con `TestUmano: ESEGUITO` e registrare l'esito nel diario.
+
+Quando viene chiesto un riepilogo, cercare tutte le voci `TestUmano: DA ESEGUIRE` e riportare soltanto i test ancora aperti con i rispettivi passi manuali. Un task `DONE` con questa dicitura soddisfa la Definition of Done perché il test residuo è stato classificato esplicitamente non bloccante.
 
 ## Regole di implementazione
 
@@ -116,7 +129,7 @@ dotnet build ArciQuiz.slnx
 
 Quando esistono test pertinenti, eseguirli prima della build completa. Ogni task può richiedere verifiche aggiuntive.
 
-Riportare soltanto comandi realmente eseguiti. Se una verifica non è possibile, indicare motivo e rischio residuo e non dichiarare il task concluso se la verifica è essenziale.
+Riportare soltanto comandi realmente eseguiti. Se una verifica non è possibile, indicare motivo e rischio residuo; applicare il protocollo `TestUmano` quando lo sviluppo è completo e la verifica non è essenziale per i task successivi.
 
 ## Git
 

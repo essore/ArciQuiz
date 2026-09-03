@@ -9,6 +9,7 @@ namespace Web.Services
 
         // Comandi della regia
         void SetState(GameState newState);
+        void SetQrVisibility(int partitaId, bool isQrVisible);
     }
 
 
@@ -25,7 +26,8 @@ namespace Web.Services
             SecondsRemainingHint: null,
             AcceptingAnswers: false,
             PublicMessage: null,
-            Version: 0);
+            Version: 0,
+            IsQrVisible: true);
 
         private event Action<GameState>? Changed;
 
@@ -50,9 +52,34 @@ namespace Web.Services
             lock (_gate)
             {
                 // Version monotona => facilita debug
-                var next = newState with { Version = _state.Version + 1 };
+                var next = newState with
+                {
+                    IsQrVisible = newState.PartitaId == _state.PartitaId
+                        ? _state.IsQrVisible
+                        : true,
+                    Version = _state.Version + 1
+                };
                 _state = next;
                 snapshot = next;
+            }
+
+            Changed?.Invoke(snapshot);
+        }
+
+        public void SetQrVisibility(int partitaId, bool isQrVisible)
+        {
+            GameState snapshot;
+            lock (_gate)
+            {
+                if (_state.PartitaId != partitaId)
+                    return;
+
+                snapshot = _state with
+                {
+                    IsQrVisible = isQrVisible,
+                    Version = _state.Version + 1
+                };
+                _state = snapshot;
             }
 
             Changed?.Invoke(snapshot);

@@ -42,19 +42,21 @@
                 <section class="team-panel question-panel">
                     <div class="question-meta">
                         <span>Domanda @_view.QuestionIndex</span>
-                        @if (_view.DeadlineUtc.HasValue)
-                        {
-                            <strong><ServerCountdown EndsAtUtc="_view.DeadlineUtc.Value" /></strong>
-                        }
                     </div>
                     <h2>@_view.QuestionText</h2>
+                    @if (_view.DeadlineUtc.HasValue && _view.DurationSeconds.HasValue)
+                    {
+                        <div class="question-countdown">
+                            <ProjectorCountdown EndsAtUtc="_view.DeadlineUtc.Value" DurationSeconds="_view.DurationSeconds.Value" />
+                        </div>
+                    }
                     <div class="answer-grid" aria-label="Opzioni di risposta">
                         @foreach (var option in _view.Options)
                         {
-                            <button class="answer-option @(_view.RecordedAnswer == option.Code ? "selected" : string.Empty)"
+                            <button class="answer-option answer-@char.ToLowerInvariant(option.Code) @AnswerStateClass(option.Code)"
                                     disabled="@(_view.RecordedAnswer.HasValue || _isSubmitting)"
                                     @onclick="() => SubmitAnswerAsync(option.Code)">
-                                <strong>@option.Code</strong><span>@option.Text</span>
+                                <strong>@option.Code</strong><span class="answer-content">@option.Text</span>
                             </button>
                         }
                     </div>
@@ -84,7 +86,15 @@
                 <section class="team-panel solution">
                     <span class="team-eyebrow">Soluzione</span>
                     <h2>@_view.QuestionText</h2>
-                    <p class="solution-answer">Risposta corretta: <strong>@_view.CorrectAnswer</strong></p>
+                    <div class="answer-grid" aria-label="Esito delle opzioni">
+                        @foreach (var option in _view.Options)
+                        {
+                            <button class="answer-option answer-@char.ToLowerInvariant(option.Code) @AnswerStateClass(option.Code)" disabled>
+                                <strong>@option.Code</strong>
+                                <span class="answer-content"><span>@option.Text</span>@AnswerResultIcon(option.Code)</span>
+                            </button>
+                        }
+                    </div>
                     @if (_view.AnswerFeedback is null)
                     {
                         <p>Questa squadra è entrata dopo la chiusura della domanda.</p>
@@ -203,6 +213,33 @@
 
     private static string FormatPointsChange(int pointsChange) =>
         pointsChange > 0 ? $"+{pointsChange}" : pointsChange.ToString();
+
+    private string AnswerStateClass(char answer)
+    {
+        if (_view?.Screen == PlayerGameScreen.Question)
+            return _view.RecordedAnswer == answer ? "is-selected" : string.Empty;
+
+        if (_view?.Screen != PlayerGameScreen.Solution)
+            return string.Empty;
+
+        if (_view.CorrectAnswer == answer)
+            return "is-correct";
+
+        return _view.RecordedAnswer == answer ? "is-incorrect is-selected-answer" : "is-incorrect";
+    }
+
+    private RenderFragment AnswerResultIcon(char answer) => builder =>
+    {
+        if (_view?.Screen != PlayerGameScreen.Solution)
+            return;
+
+        var isCorrect = _view.CorrectAnswer == answer;
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", isCorrect ? "answer-result-icon correct" : "answer-result-icon incorrect");
+        builder.AddAttribute(2, "aria-label", isCorrect ? "Risposta corretta" : "Risposta errata");
+        builder.AddContent(3, isCorrect ? "✓" : "✕");
+        builder.CloseElement();
+    };
 
     public void Dispose() => _subscription?.Dispose();
 }

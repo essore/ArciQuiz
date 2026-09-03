@@ -76,7 +76,6 @@ builder.Services.AddAuthorization(options =>
     });
 });
 
-// Add services to the container.
 builder.Services.AddSingleton<IGameStateService, GameStateService>();
 builder.Services.AddSingleton<ILanAddressService, LanAddressService>();
 builder.Services.AddSingleton<ILanUrlService, LanUrlService>();
@@ -89,10 +88,6 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 var app = builder.Build();
-
-
-
-
 // Applica lo schema persistente prima di usare il database.
 using (var scope = app.Services.CreateScope())
 {
@@ -105,38 +100,10 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
-}
-else
-{
-
-    // === Apertura automatica browser ===
-    //app.Lifetime.ApplicationStarted.Register(() =>
-    //{
-    //    try
-    //    {
-    //        // Usa l'URL effettivamente in ascolto
-    //        // (è lo stesso che usa Visual Studio/launchSettings)
-    //        var url = app.Urls.FirstOrDefault() ?? "http://localhost:5000";
-
-    //        Process.Start(new ProcessStartInfo
-    //        {
-    //            FileName = url,
-    //            UseShellExecute = true
-    //        });
-    //    }
-    //    catch
-    //    {
-    //        // Se non riesce ad aprire il browser, non blocchiamo l'app
-    //    }
-    //});
-    // ================================
-
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();

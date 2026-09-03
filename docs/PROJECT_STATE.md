@@ -1,9 +1,9 @@
 # Stato del progetto
 
-Ultima verifica: **2026-08-19**  
+Ultima verifica: **2026-09-02**
 Commit ispezionato prima della documentazione: `3b476a5` (`master`)
 
-Stadio: **prototipo compilabile con baseline di test (102 casi), partita attiva persistita e configurazione domande coerente (AQ-047 completato)**
+Stadio: **prototipo compilabile con baseline di test (110 casi), partita attiva persistita, configurazione domande coerente, clonazione atomica delle partite, proiettore e client squadra ridisegnati; AQ-060 completato con smoke smartphone manuale residuo non bloccante; AQ-041 bloccato dal ripristino NuGet necessario per correggere dipendenze vulnerabili**
 
 ## Baseline verificata
 
@@ -14,9 +14,9 @@ dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false
 ```
 
-Esito: test riusciti (102 casi, inclusi calcolo coefficiente tempo, punteggi con moltiplicatori, malus, registrazione automatica astensioni con soglia per manche, idempotenza, routing/sessione squadra, invio risposta, soluzione/distribuzione, classifiche, annullamento, macchina a stati, recupero su SQLite riaperto, partita attiva, caricamento del riepilogo e associazione unica delle domande nella partita) e build riuscita, 0 errori e 3 avvisi noti.
+Esito: test riusciti (110 casi, inclusi calcolo coefficiente tempo, punteggi con moltiplicatori, malus, registrazione automatica astensioni con soglia per manche, idempotenza, routing/sessione squadra, invio risposta, soluzione/distribuzione, countdown della squadra con durata standard e override, conteggi del proiettore e parità della risposta valida più veloce, classifiche, annullamento, macchina a stati, recupero su SQLite riaperto, partita attiva, caricamento del riepilogo, associazione unica delle domande nella partita, conferma prima della sostituzione della partita attiva dalla regia, persistenza della visibilità del QR negli aggiornamenti runtime, avvio della manche successiva con ordinamenti duplicati e clonazione atomica di una configurazione già giocata) e build riuscita, 0 errori e 11 avvisi NuGet noti.
 
-Completato `AQ-047`: il server impedisce di associare una domanda a più manche della stessa partita e l'interfaccia di gestione non espone identificativi tecnici. `AQ-048` è ora il task autorizzato in coda (`READY`); `AQ-041` resta pianificato dopo i task funzionali.
+Completati `AQ-047`, `AQ-048`, `AQ-049`, `AQ-058`, `AQ-050`, `AQ-051` e `AQ-060`: il server impedisce di associare una domanda a più manche della stessa partita, la regia espone comandi contestuali, countdown, conferma prima del cambio di partita attiva e controllo runtime del QR sul proiettore. La scelta QR è condivisa tra le sessioni del proiettore della partita attiva e si conserva durante gli aggiornamenti di fase; dopo il riavvio torna visibile. L'ordinamento delle manche usa ora `Ordine` e ID come spareggio sia nel motore sia nella regia, preservando le partite esistenti con ordini duplicati. Il proiettore usa quattro opzioni contrastate, evidenzia la soluzione con ✓ verde, contorno e glow oro e le opzioni errate con ✕ rossa su sfondo disabilitato, mostra i risultati a domanda chiusa e conserva il timer tra domanda e risposte: è rosso sotto il 20%, quindi diventa grigio con icona timeout a domanda chiusa per evitare salti di layout. Dalla dashboard l'admin può ora clonare una partita con un titolo nuovo: manche, regole e riferimenti alle domande vengono copiati in una transazione, mentre partecipazione e runtime ricominciano vuoti e inattivi. Il client squadra riprende colori e stati del proiettore, mostrando countdown a barra, selezione blu e, a domanda chiusa, soluzione verde/oro e errori disabilitati; la soluzione resta assente prima della chiusura. Le route demo e i residui commentati del template sono rimossi, mentre errori e riconnessione sono ora in italiano. Gli smoke di AQ-048, AQ-049, AQ-058, AQ-050, AQ-051 e AQ-060 restano registrati come `TestUmano: DA ESEGUIRE`. `AQ-041` è `BLOCKED`: l'aggiornamento EF Core necessario a correggere le dipendenze vulnerabili non è ripristinabile perché NuGet è irraggiungibile dall'ambiente.
 
 ## Funzioni presenti
 
@@ -43,6 +43,7 @@ Completato `AQ-047`: il server impedisce di associare una domanda a più manche 
 - macchina a stati persistente con comandi idempotenti e recupero dopo riavvio;
 - timer server-authoritative con override per domanda, chiusura automatica e countdown condiviso;
 - creazione partita e manche;
+- clonazione atomica di una partita con manche, regole e riferimenti alle domande del catalogo, senza dati di serata;
 - configurazione di manche e associazione/ordine delle domande;
 - validazione server-side della transizione della partita a `Pronta`, con messaggi italiani;
 - dashboard admin prototipale;
