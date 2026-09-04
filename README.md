@@ -77,6 +77,11 @@ Prima di avviare l'applicazione, copiare `Web/appsettings.Local.example.json` in
 Il file locale è ignorato da Git. In alternativa, impostare le variabili
 d'ambiente `Admin__Username` e `Admin__Password`.
 
+## Distribuzione Windows offline
+
+La procedura riproducibile di pubblicazione, avvio in LAN, firewall e copia del
+database è descritta in [docs/DISTRIBUZIONE_WINDOWS.md](docs/DISTRIBUZIONE_WINDOWS.md).
+
 ## Modalità di lavoro
 
 Il proprietario avvia gli agenti quando dispone del budget di token. Ogni agente autonomo completa un solo task `READY`, verifica il risultato, aggiorna la documentazione operativa e si ferma. Il protocollo completo è in [AGENTS.md](AGENTS.md).

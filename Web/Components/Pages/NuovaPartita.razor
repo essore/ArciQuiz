@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 
 @using Core.Entities
+@using Core.Enums
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<ArciQuizDbContext> DbFactory
@@ -57,7 +58,8 @@
         var partita = new Partita
         {
             Titolo = Titolo,
-            DtCreazione = DateTime.UtcNow
+            DtCreazione = DateTime.UtcNow,
+            Stato = PartitaStato.Configurazione
         };
 
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -72,7 +74,9 @@
                 Ordine = i + 1,
                 TempoRispostaSecondi = 20,
                 PuntiBase = 2000,
-                PenalitaErrore = false,
+                MalusBase = 500,
+                Moltiplicatore = 1,
+                PenalitaErrore = true,
                 MaxAstensioni = 3
             };
 
@@ -82,8 +86,7 @@
         // 3) Salviamo tutto
         await db.SaveChangesAsync();
 
-        // 4) Redirect alla pagina di configurazione (TO-DO)
-        Nav.NavigateTo("/admin");
+        Nav.NavigateTo($"/partita/{partita.Id}");
     }
 
     private void Annulla()

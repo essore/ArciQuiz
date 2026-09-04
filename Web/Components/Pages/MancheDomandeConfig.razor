@@ -2,6 +2,7 @@
 @attribute [Authorize]
 
 @using Core.Entities
+@using Core.Enums
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
 @using Web.Services
@@ -35,6 +36,11 @@ else
             &larr; Torna configurazione partita
         </button>
     </div>
+
+    @if (!IsPreparazioneModificabile)
+    {
+        <div class="alert alert-info">Per modificare le domande, torna alla partita e riportala in preparazione.</div>
+    }
 
     <hr />
 
@@ -70,25 +76,25 @@ else
                                 <td>
                                     <input type="number" class="form-control form-control-sm"
                                            style="width:80px"
-                                           @bind="md.ModificatorePunti" min="1" max="10" />
+                                           @bind="md.ModificatorePunti" min="1" max="10" disabled="@(!IsPreparazioneModificabile)" />
                                 </td>
                                 <td>
                                     <input type="number" class="form-control form-control-sm"
                                            style="width:110px"
                                            @bind="md.DurataSecondiOverride" min="5" max="300"
-                                           placeholder="@_manche.TempoRispostaSecondi" />
+                                           placeholder="@_manche.TempoRispostaSecondi" disabled="@(!IsPreparazioneModificabile)" />
                                 </td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-secondary me-1"
-                                            @onclick="@(() => SpostaSu(md))">
+                                            @onclick="@(() => SpostaSu(md))" disabled="@(!IsPreparazioneModificabile)">
                                         ↑
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary me-1"
-                                            @onclick="@(() => SpostaGiu(md))">
+                                            @onclick="@(() => SpostaGiu(md))" disabled="@(!IsPreparazioneModificabile)">
                                         ↓
                                     </button>
                                     <button class="btn btn-sm btn-danger"
-                                            @onclick="@(() => RimuoviDaManche(md))">
+                                            @onclick="@(() => RimuoviDaManche(md))" disabled="@(!IsPreparazioneModificabile)">
                                         Rimuovi
                                     </button>
                                 </td>
@@ -97,7 +103,7 @@ else
                     </tbody>
                 </table>
 
-                <button class="btn btn-primary" @onclick="SalvaOrdineEModificatori">
+                <button class="btn btn-primary" @onclick="SalvaOrdineEModificatori" disabled="@(!IsPreparazioneModificabile)">
                     Salva modifiche
                 </button>
             }
@@ -118,7 +124,7 @@ else
 
             <div class="mb-3">
                 <label class="form-label">Filtro testo / categoria / difficoltà</label>
-                <input class="form-control" @bind="_filtro" @bind:event="oninput" />
+                <input class="form-control" @bind="_filtro" @bind:event="oninput" disabled="@(!IsPreparazioneModificabile)" />
             </div>
 
             @if (_domandeDisponibiliFiltrate is null)
@@ -149,7 +155,7 @@ else
                                 <td>@d.Testo</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-primary"
-                                            @onclick="@(() => AggiungiDomanda(d.Id))">
+                                            @onclick="@(() => AggiungiDomanda(d.Id))" disabled="@(!IsPreparazioneModificabile)">
                                         Aggiungi
                                     </button>
                                 </td>
@@ -175,6 +181,7 @@ else
     private bool _isLoading = true;
     private string? _messaggio;
     private string? _errore;
+    private bool IsPreparazioneModificabile => _manche?.Partita?.Stato is PartitaStato.Nuova or PartitaStato.Configurazione;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -224,6 +231,9 @@ else
         _errore = null;
         _messaggio = null;
         await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await PuoModificarePreparazioneAsync(db))
+            return;
+
         var result = await MancheDomandaAssociationService.AggiungiAsync(db, _manche.Id, domandaId);
         if (!result.IsSuccess)
         {
@@ -239,6 +249,9 @@ else
     private async Task RimuoviDaManche(MancheDomanda md)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await PuoModificarePreparazioneAsync(db))
+            return;
+
         var mancheDomanda = await db.ManchesDomande.FirstOrDefaultAsync(item => item.Id == md.Id);
         if (mancheDomanda is null)
             return;
@@ -255,6 +268,9 @@ else
         try
         {
             await using var db = await DbFactory.CreateDbContextAsync();
+            if (!await PuoModificarePreparazioneAsync(db))
+                return;
+
             foreach (var domanda in _domandeManche)
             {
                 var mancheDomanda = await db.ManchesDomande.FirstOrDefaultAsync(item => item.Id == domanda.Id);
@@ -314,6 +330,9 @@ else
     private async Task ScambiaOrdineAsync(int primaId, int secondaId)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await PuoModificarePreparazioneAsync(db))
+            return;
+
         var prima = await db.ManchesDomande.FirstOrDefaultAsync(item => item.Id == primaId);
         var seconda = await db.ManchesDomande.FirstOrDefaultAsync(item => item.Id == secondaId);
         if (prima is null || seconda is null)
@@ -324,6 +343,19 @@ else
         seconda.Index = indice;
 
         await db.SaveChangesAsync();
+    }
+
+    private async Task<bool> PuoModificarePreparazioneAsync(ArciQuizDbContext db)
+    {
+        var stato = await db.Manches
+            .Where(item => item.Id == Id)
+            .Select(item => (PartitaStato?)item.Partita!.Stato)
+            .FirstOrDefaultAsync();
+        if (stato is PartitaStato.Nuova or PartitaStato.Configurazione)
+            return true;
+
+        _errore = "Per modificare le domande, torna alla partita e riportala in preparazione.";
+        return false;
     }
 
     private string Filtro

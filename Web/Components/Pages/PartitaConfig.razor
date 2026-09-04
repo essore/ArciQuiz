@@ -6,6 +6,7 @@
 @using Core.Services
 @using Infrasctructure.Data
 @using Microsoft.EntityFrameworkCore
+@using Web.Services
 @inject IDbContextFactory<ArciQuizDbContext> DbFactory
 @inject NavigationManager Nav
 
@@ -24,6 +25,15 @@ else if (_partita is null)
 else
 {
     <h1>Configura partita: @_partita.Titolo</h1>
+    <p>Completa i passaggi nell'ordine indicato. Puoi tornare ai passaggi precedenti senza perdere le modifiche già salvate.</p>
+
+    <ol>
+        <li>Dati della partita</li>
+        <li>Manche e regole</li>
+        <li>Domande</li>
+        <li>Squadre</li>
+        <li>Verifica finale e lobby</li>
+    </ol>
 
     <div class="mb-3">
         <button class="btn btn-secondary" @onclick="TornaAllAdmin">
@@ -33,26 +43,16 @@ else
 
     <hr />
 
-    <h2>Dettagli partita</h2>
+    <h2>1. Dati della partita</h2>
 
     <div class="row">
         <div class="col-md-6">
             <div class="mb-3">
                 <label class="form-label">Titolo</label>
-                <input class="form-control" @bind="_partita.Titolo" />
+                <input class="form-control" @bind="_partita.Titolo" disabled="@(!IsPreparazioneModificabile)" />
             </div>
 
-            <div class="mb-3">
-                <label class="form-label">Stato</label>
-                <select class="form-select" @bind="_partita.Stato">
-                    @foreach (PartitaStato stato in Enum.GetValues(typeof(PartitaStato)))
-                    {
-                        <option value="@stato">@stato</option>
-                    }
-                </select>
-            </div>
-
-            <button class="btn btn-primary" @onclick="SalvaPartita">
+            <button class="btn btn-primary" @onclick="SalvaPartita" disabled="@(!IsPreparazioneModificabile)">
                 Salva dettagli partita
             </button>
         </div>
@@ -60,8 +60,9 @@ else
         <div class="col-md-6">
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Info</h5>
+                    <h5 class="card-title">Stato della preparazione</h5>
                     <p class="card-text">
+                        @DescriviStatoPreparazione(_partita.Stato)<br />
                         Creata il @_partita.DtCreazione.ToLocalTime().ToString("g")<br />
                         Manches: @_partita.Manches.Count<br />
                         Squadre iscritte: @_partita.PlayersPartita.Count
@@ -73,10 +74,10 @@ else
 
     <hr />
 
-    <h2>Manches</h2>
+    <h2>2. Manche e regole</h2>
 
     <div class="mb-3">
-        <button class="btn btn-outline-primary" @onclick="AggiungiManche">
+        <button class="btn btn-outline-primary" @onclick="AggiungiManche" disabled="@(!IsPreparazioneModificabile)">
             + Aggiungi manche
         </button>
     </div>
@@ -90,12 +91,12 @@ else
         <table class="table table-sm align-middle">
             <thead>
                 <tr>
-                    <th>Stato</th>
                     <th>Tempo risposta (s)</th>
                     <th>Punti base</th>
-                    <th>Penalità errore</th>
-                    <th>Max astensioni</th>
-                    <th>Domande</th>
+                    <th>Malus base</th>
+                    <th>Moltiplicatore</th>
+                    <th>Astensioni gratuite</th>
+                    <th>3. Domande</th>
                     <th></th>
                 </tr>
             </thead>
@@ -104,38 +105,34 @@ else
                 {
                     <tr>
                         <td>
-                            <select class="form-select form-select-sm" @bind="m.Stato">
-                                @foreach (MancheStato stato in Enum.GetValues(typeof(MancheStato)))
-                                {
-                                    <option value="@stato">@stato</option>
-                                }
-                            </select>
+                            <input type="number" class="form-control form-control-sm"
+                                   @bind="m.TempoRispostaSecondi" min="5" max="300" disabled="@(!IsPreparazioneModificabile)" />
                         </td>
                         <td>
                             <input type="number" class="form-control form-control-sm"
-                                   @bind="m.TempoRispostaSecondi" min="5" max="300" />
+                                   @bind="m.PuntiBase" min="0" max="100000" disabled="@(!IsPreparazioneModificabile)" />
                         </td>
                         <td>
                             <input type="number" class="form-control form-control-sm"
-                                   @bind="m.PuntiBase" min="0" max="100000" />
-                        </td>
-                        <td class="text-center">
-                            <input type="checkbox" class="form-check-input"
-                                   @bind="m.PenalitaErrore" />
+                                   @bind="m.MalusBase" min="0" max="100000" disabled="@(!IsPreparazioneModificabile)" />
                         </td>
                         <td>
                             <input type="number" class="form-control form-control-sm"
-                                   @bind="m.MaxAstensioni" min="0" max="10" />
+                                   @bind="m.Moltiplicatore" min="1" max="10" disabled="@(!IsPreparazioneModificabile)" />
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm"
+                                   @bind="m.MaxAstensioni" min="0" max="10" disabled="@(!IsPreparazioneModificabile)" />
                         </td>
                         <td>
                             @m.Domande.Count
                             <button class="btn btn-sm btn-outline-primary ms-2"
-                                    @onclick="@(() => VaiConfigDomandeManche(m.Id))">
+                                    @onclick="@(() => VaiConfigDomandeManche(m.Id))" disabled="@(!IsPreparazioneModificabile)">
                                 Configura
                             </button>
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-danger" @onclick="@(() => RimuoviManche(m))">
+                            <button class="btn btn-sm btn-danger" @onclick="@(() => RimuoviManche(m))" disabled="@(!IsPreparazioneModificabile)">
                                 Elimina
                             </button>
                         </td>
@@ -144,14 +141,14 @@ else
             </tbody>
         </table>
 
-        <button class="btn btn-primary" @onclick="SalvaManches">
+        <button class="btn btn-primary" @onclick="SalvaManches" disabled="@(!IsPreparazioneModificabile)">
             Salva modifiche manche
         </button>
     }
 
     <hr />
 
-    <h2>Squadre iscritte</h2>
+    <h2>4. Squadre</h2>
 
     <button class="btn btn-outline-primary mb-3" @onclick="VaiGestioneSquadre">
         Gestisci squadre
@@ -180,6 +177,44 @@ else
         </table>
     }
 
+    <hr />
+
+    <h2>5. Verifica finale e lobby</h2>
+    <p>La lobby si apre soltanto dopo il controllo dei requisiti. Gli stati di svolgimento restano gestiti dalla regia.</p>
+
+    @if (_requisitiMancanti.Any())
+    {
+        <div class="alert alert-warning">
+            <strong>Completa questi requisiti prima di aprire la lobby:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach (var requisito in _requisitiMancanti)
+                {
+                    <li>@requisito</li>
+                }
+            </ul>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-success">
+            <strong>Checklist completata.</strong> La partita contiene dati, manche e domande validi.
+        </div>
+    }
+
+    @if (_partita.Stato == PartitaStato.Pronta)
+    {
+        <div class="alert alert-info">La lobby è pronta per le iscrizioni pubbliche.</div>
+        <button class="btn btn-outline-secondary" @onclick="TornaInPreparazioneAsync">
+            Torna alla preparazione
+        </button>
+    }
+    else if (_partita.Stato is PartitaStato.Nuova or PartitaStato.Configurazione)
+    {
+        <button class="btn btn-success" @onclick="DichiaraProntaAsync" disabled="@_requisitiMancanti.Any()">
+            Apri la lobby e dichiara la partita pronta
+        </button>
+    }
+
     @if (!string.IsNullOrEmpty(_messaggio))
     {
         <div class="alert alert-success mt-3">@_messaggio</div>
@@ -199,6 +234,7 @@ else
     private bool _isLoading = true;
     private string? _messaggio;
     private string? _errore;
+    private IReadOnlyList<string> _requisitiMancanti = [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -221,6 +257,8 @@ else
             .Distinct()
             .ToList() ?? new List<Player>();
 
+        AggiornaChecklist();
+
         _isLoading = false;
     }
 
@@ -230,6 +268,12 @@ else
 
         _messaggio = null;
         _errore = null;
+
+        if (string.IsNullOrWhiteSpace(_partita.Titolo))
+        {
+            _errore = "Il titolo della partita è obbligatorio.";
+            return;
+        }
 
         try
         {
@@ -245,40 +289,17 @@ else
                 return;
             }
 
-            if (_partita.Stato == PartitaStato.Pronta && partita.Stato != PartitaStato.Pronta)
+            if (partita.Stato is not (PartitaStato.Nuova or PartitaStato.Configurazione))
             {
-                var validationResult = PartitaProntaValidator.Validate(partita);
-                if (!validationResult.IsValid)
-                {
-                    _errore = string.Join(" ", validationResult.Errori);
-                    return;
-                }
-            }
-
-            if (_partita.Stato is PartitaStato.InCorso or PartitaStato.Conclusa
-                && _partita.Stato != partita.Stato)
-            {
-                _errore = "Avviare e concludere la partita dalla regia.";
+                _errore = "Per modificare i dettagli, riporta prima la partita in preparazione.";
                 return;
             }
 
-            if (partita.Stato is PartitaStato.InCorso or PartitaStato.Conclusa
-                && _partita.Stato != partita.Stato)
-            {
-                _errore = "Lo stato di una partita avviata non può essere modificato dalla configurazione.";
-                return;
-            }
-
-            partita.Titolo = _partita.Titolo;
-            if (partita.Stato is not (PartitaStato.InCorso or PartitaStato.Conclusa))
-            {
-                partita.Stato = _partita.Stato;
-                partita.Fase = partita.Stato == PartitaStato.Pronta
-                    ? GamePhase.Lobby
-                    : GamePhase.Idle;
-            }
+            partita.Titolo = _partita.Titolo.Trim();
+            _partita.Titolo = partita.Titolo;
             await db.SaveChangesAsync();
             _messaggio = "Dettagli partita salvati.";
+            AggiornaChecklist();
         }
         catch (Exception ex)
         {
@@ -292,14 +313,27 @@ else
 
         try
         {
+            _messaggio = null;
+            _errore = null;
+
+            var errori = _partita.Manches
+                .SelectMany(manche => MancheRulesValidator.Validate(manche).Errori)
+                .Distinct()
+                .ToList();
+            if (errori.Count > 0)
+            {
+                _errore = string.Join(" ", errori);
+                return;
+            }
+
             await using var db = await DbFactory.CreateDbContextAsync();
             var partitaStato = await db.Partite
                 .Where(item => item.Id == _partita.Id)
                 .Select(item => item.Stato)
                 .FirstOrDefaultAsync();
-            if (partitaStato is PartitaStato.InCorso or PartitaStato.Conclusa)
+            if (partitaStato is not (PartitaStato.Nuova or PartitaStato.Configurazione))
             {
-                _errore = "Lo stato delle manche di una partita avviata si modifica soltanto dalla regia.";
+                _errore = "Per modificare le manche, riporta prima la partita in preparazione.";
                 return;
             }
 
@@ -315,15 +349,16 @@ else
                 if (manche is null)
                     continue;
 
-                manche.Stato = mancheModificata.Stato;
                 manche.TempoRispostaSecondi = mancheModificata.TempoRispostaSecondi;
                 manche.PuntiBase = mancheModificata.PuntiBase;
-                manche.PenalitaErrore = mancheModificata.PenalitaErrore;
+                manche.MalusBase = mancheModificata.MalusBase;
+                manche.Moltiplicatore = mancheModificata.Moltiplicatore;
                 manche.MaxAstensioni = mancheModificata.MaxAstensioni;
             }
 
             await db.SaveChangesAsync();
             _messaggio = "Modifiche alle manches salvate.";
+            AggiornaChecklist();
         }
         catch (Exception ex)
         {
@@ -336,6 +371,9 @@ else
         if (_partita is null) return;
 
         await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await PuoModificarePreparazioneAsync(db))
+            return;
+
         var ordineSuccessivo = (await db.Manches
             .Where(item => item.PartitaId == _partita.Id)
             .Select(item => (int?)item.Ordine)
@@ -347,7 +385,9 @@ else
             Ordine = ordineSuccessivo,
             TempoRispostaSecondi = 20,
             PuntiBase = 2000,
-            PenalitaErrore = false,
+            MalusBase = 500,
+            Moltiplicatore = 1,
+            PenalitaErrore = true,
             MaxAstensioni = 3
         };
 
@@ -363,6 +403,9 @@ else
         if (_partita is null) return;
 
         await using var db = await DbFactory.CreateDbContextAsync();
+        if (!await PuoModificarePreparazioneAsync(db))
+            return;
+
         var mancheDaRimuovere = await db.Manches.FirstOrDefaultAsync(item => item.Id == manche.Id);
         if (mancheDaRimuovere is null)
             return;
@@ -387,5 +430,77 @@ else
     {
         Nav.NavigateTo($"/partita/{Id}/squadre");
     }
+
+    private bool IsPreparazioneModificabile => _partita?.Stato is PartitaStato.Nuova or PartitaStato.Configurazione;
+
+    private async Task<bool> PuoModificarePreparazioneAsync(ArciQuizDbContext db)
+    {
+        var stato = await db.Partite
+            .Where(item => item.Id == Id)
+            .Select(item => (PartitaStato?)item.Stato)
+            .FirstOrDefaultAsync();
+        if (stato is PartitaStato.Nuova or PartitaStato.Configurazione)
+            return true;
+
+        _errore = "Per modificare la preparazione, riporta prima la partita in preparazione.";
+        return false;
+    }
+
+    private async Task DichiaraProntaAsync()
+    {
+        _messaggio = null;
+        _errore = null;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var result = await PartitaPreparazioneService.DichiaraProntaAsync(db, Id);
+        if (!result.IsSuccess)
+        {
+            _requisitiMancanti = result.RequisitiMancanti;
+            _errore = result.RequisitiMancanti.Any()
+                ? string.Join(" ", result.RequisitiMancanti)
+                : result.Messaggio;
+            return;
+        }
+
+        _partita!.Stato = PartitaStato.Pronta;
+        _partita.Fase = GamePhase.Lobby;
+        _messaggio = result.Messaggio;
+        AggiornaChecklist();
+    }
+
+    private async Task TornaInPreparazioneAsync()
+    {
+        _messaggio = null;
+        _errore = null;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var result = await PartitaPreparazioneService.TornaInPreparazioneAsync(db, Id);
+        if (!result.IsSuccess)
+        {
+            _errore = result.Messaggio;
+            return;
+        }
+
+        _partita!.Stato = PartitaStato.Configurazione;
+        _partita.Fase = GamePhase.Idle;
+        _messaggio = result.Messaggio;
+        AggiornaChecklist();
+    }
+
+    private void AggiornaChecklist()
+    {
+        _requisitiMancanti = _partita is null
+            ? []
+            : PartitaProntaValidator.Validate(_partita).Errori;
+    }
+
+    private static string DescriviStatoPreparazione(PartitaStato stato) => stato switch
+    {
+        PartitaStato.Nuova or PartitaStato.Configurazione => "In preparazione",
+        PartitaStato.Pronta => "Lobby pronta",
+        PartitaStato.InCorso => "In conduzione",
+        PartitaStato.Conclusa => "Nello storico",
+        _ => "Stato non disponibile"
+    };
 
 }

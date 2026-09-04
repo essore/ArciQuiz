@@ -1,8 +1,8 @@
 .projector-shell {
     min-height: 100dvh;
     padding: clamp(1rem, 3vw, 3rem);
-    background: #f7f8fc;
-    color: #121826;
+    background: var(--arci-background);
+    color: var(--arci-ink);
 }
 
 .projector-header {
@@ -29,7 +29,7 @@
 
 .question-meta {
     margin: .65rem 0 0;
-    color: #455166;
+    color: var(--arci-muted);
     font-size: clamp(.9rem, 1.6vw, 1.2rem);
     font-weight: 700;
 }
@@ -48,8 +48,8 @@
     overflow: hidden;
     border: .3rem solid var(--answer-color);
     border-radius: 1rem;
-    background: white;
-    box-shadow: 0 .3rem .8rem rgb(18 24 38 / 10%);
+    background: var(--arci-surface);
+    box-shadow: var(--arci-shadow);
 }
 
 .answer-card.answer-a { --answer-color: #1457d9; }
@@ -159,8 +159,8 @@
 .fastest-answer {
     padding: clamp(.75rem, 1.7vw, 1.25rem);
     border-radius: .85rem;
-    background: #ffffff;
-    box-shadow: 0 .2rem .6rem rgb(18 24 38 / 10%);
+    background: var(--arci-surface);
+    box-shadow: var(--arci-shadow);
 }
 
 .result-card strong,

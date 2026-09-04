@@ -16,6 +16,11 @@ public static class PartitaProntaValidator
 
         var errori = new List<string>();
 
+        if (string.IsNullOrWhiteSpace(partita.Titolo))
+        {
+            errori.Add("Indicare il titolo della partita prima di dichiararla pronta.");
+        }
+
         if (partita.Manches.Count == 0)
         {
             errori.Add("Aggiungi almeno una manche prima di dichiarare la partita pronta.");
@@ -24,6 +29,8 @@ public static class PartitaProntaValidator
 
         foreach (var manche in partita.Manches)
         {
+            errori.AddRange(MancheRulesValidator.Validate(manche).Errori.Select(errore => $"La manche #{manche.Id}: {errore}"));
+
             if (manche.TempoRispostaSecondi <= 0)
             {
                 errori.Add($"La manche #{manche.Id} deve avere un tempo di risposta maggiore di zero.");

@@ -18,7 +18,7 @@
 
 <hr />
 
-<h2>Partita attiva</h2>
+<h2>Conduzione della serata</h2>
 
 @if (_partitaAttiva is null)
 {
@@ -71,7 +71,7 @@ else
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Partite</h2>
+    <h2 class="mb-0">Preparazione, conduzione e storico</h2>
     <button class="btn btn-primary" @onclick="VaiNuovaPartita">
         Nuova partita
     </button>
@@ -101,39 +101,47 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var p in _ultimePartite)
+            @foreach (var gruppo in _ultimePartite
+                .GroupBy(CategoriaPartita)
+                .OrderBy(gruppo => OrdineCategoria(gruppo.First())))
             {
-                <tr>
-                    <td>@p.Titolo</td>
-                    <td>@p.Stato</td>
-                    <td>@p.DtCreazione.ToLocalTime().ToString("g")</td>
-                    <td>@p.Manches.Count</td>
-                    <td>@p.PlayersPartita.Count</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary"
-                                @onclick="@(() => VaiAConfigPartita(p.Id))">
-                            Configura
-                        </button>
-                        <button class="btn btn-sm btn-outline-success ms-1"
-                                @onclick="@(() => VaiARegia(p.Id))">
-                            Regia
-                        </button>
-                        <a class="btn btn-sm btn-outline-secondary ms-1" href="@($"/proiettore/{p.Id}")" target="_blank">
-                            Proiettore
-                        </a>
-                        <button class="btn btn-sm btn-outline-primary ms-1"
-                                @onclick="@(() => VaiAClonaPartita(p.Id))">
-                            Clona
-                        </button>
-                        @if (!p.IsAttiva && p.Stato != PartitaStato.Conclusa)
-                        {
-                            <button class="btn btn-sm btn-primary ms-1"
-                                    @onclick="@(() => ImpostaPartitaAttivaAsync(p.Id))">
-                                Rendi attiva
-                            </button>
-                        }
-                    </td>
+                <tr class="table-light">
+                    <th colspan="6">@gruppo.Key</th>
                 </tr>
+                @foreach (var p in gruppo)
+                {
+                    <tr>
+                        <td>@p.Titolo</td>
+                        <td>@p.Stato</td>
+                        <td>@p.DtCreazione.ToLocalTime().ToString("g")</td>
+                        <td>@p.Manches.Count</td>
+                        <td>@p.PlayersPartita.Count</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary"
+                                    @onclick="@(() => VaiAConfigPartita(p.Id))">
+                                Configura
+                            </button>
+                            <button class="btn btn-sm btn-outline-success ms-1"
+                                    @onclick="@(() => VaiARegia(p.Id))">
+                                Regia
+                            </button>
+                            <a class="btn btn-sm btn-outline-secondary ms-1" href="@($"/proiettore/{p.Id}")" target="_blank">
+                                Proiettore
+                            </a>
+                            <button class="btn btn-sm btn-outline-primary ms-1"
+                                    @onclick="@(() => VaiAClonaPartita(p.Id))">
+                                Clona
+                            </button>
+                            @if (!p.IsAttiva && p.Stato != PartitaStato.Conclusa)
+                            {
+                                <button class="btn btn-sm btn-primary ms-1"
+                                        @onclick="@(() => ImpostaPartitaAttivaAsync(p.Id))">
+                                    Rendi attiva
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
             }
         </tbody>
     </table>
@@ -200,4 +208,20 @@ else
     {
         Nav.NavigateTo("/nuova-partita");
     }
+
+    private static string CategoriaPartita(Partita partita) => partita.Stato switch
+    {
+        PartitaStato.Nuova or PartitaStato.Configurazione => "Preparazione",
+        PartitaStato.Pronta or PartitaStato.InCorso => "Conduzione della serata",
+        PartitaStato.Conclusa => "Storico",
+        _ => "Altre partite"
+    };
+
+    private static int OrdineCategoria(Partita partita) => partita.Stato switch
+    {
+        PartitaStato.Nuova or PartitaStato.Configurazione => 1,
+        PartitaStato.Pronta or PartitaStato.InCorso => 2,
+        PartitaStato.Conclusa => 3,
+        _ => 4
+    };
 }

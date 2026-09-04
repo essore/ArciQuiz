@@ -3,8 +3,8 @@
     max-width: 42rem;
     margin: 0 auto;
     padding: 1rem;
-    background: #f3f6fa;
-    color: #172033;
+    background: var(--arci-background);
+    color: var(--arci-ink);
 }
 
 .team-header {
@@ -21,7 +21,7 @@
 }
 
 .team-eyebrow {
-    color: #516078;
+    color: var(--arci-muted);
     font-size: .85rem;
     font-weight: 800;
     letter-spacing: .06em;
@@ -41,8 +41,8 @@
 .team-panel {
     padding: 1.25rem;
     border-radius: 1.25rem;
-    background: white;
-    box-shadow: 0 .5rem 1.5rem rgba(26, 42, 69, .08);
+    background: var(--arci-surface);
+    box-shadow: var(--arci-shadow);
 }
 
 .question-panel {
@@ -59,7 +59,7 @@
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    color: #46546a;
+    color: var(--arci-muted);
     font-size: 1.1rem;
     font-weight: 800;
 }
@@ -78,7 +78,7 @@
     overflow: hidden;
     border: .2rem solid var(--answer-color);
     border-radius: 1rem;
-    background: #fff;
+    background: var(--arci-surface);
     color: inherit;
     cursor: pointer;
     padding: 0;
@@ -171,7 +171,7 @@
 
 .team-hint, .team-footer {
     margin-top: 1.25rem;
-    color: #68758a;
+    color: var(--arci-muted);
     font-size: .9rem;
 }
 
@@ -198,7 +198,7 @@
     margin-top: 1rem;
     padding: 1rem;
     border-radius: .85rem;
-    background: #1457d9;
+    background: var(--arci-primary);
     color: white;
     font-weight: 800;
     text-align: center;

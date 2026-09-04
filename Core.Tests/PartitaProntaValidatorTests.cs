@@ -15,6 +15,18 @@ public class PartitaProntaValidatorTests
     }
 
     [Fact]
+    public void Validate_WhenPartitaHasNoTitle_ReturnsItalianError()
+    {
+        var partita = CreatePartitaWithValidDomanda();
+        partita.Titolo = string.Empty;
+
+        var result = PartitaProntaValidator.Validate(partita);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errori, errore => errore.Contains("titolo della partita"));
+    }
+
+    [Fact]
     public void Validate_WhenMancheHasNoDomande_ReturnsItalianError()
     {
         var partita = new Partita
@@ -85,6 +97,7 @@ public class PartitaProntaValidatorTests
     {
         return new Partita
         {
+            Titolo = "Serata test",
             Manches =
             {
                 new Manche

@@ -1,4 +1,5 @@
 using Core.Entities;
+using Core.Enums;
 using Infrasctructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,9 +15,12 @@ public static class MancheDomandaAssociationService
         CancellationToken cancellationToken = default)
     {
         var manche = await database.Manches
+            .Include(item => item.Partita)
             .FirstOrDefaultAsync(item => item.Id == mancheId, cancellationToken);
         if (manche is null)
             return MancheDomandaAssociationResult.Error("La manche non è più disponibile.");
+        if (manche.Partita?.Stato is not (PartitaStato.Nuova or PartitaStato.Configurazione))
+            return MancheDomandaAssociationResult.Error("Per modificare le domande, riporta prima la partita in preparazione.");
 
         var domandaEsiste = await database.Domande
             .AnyAsync(item => item.Id == domandaId && !item.FlgDeleted, cancellationToken);

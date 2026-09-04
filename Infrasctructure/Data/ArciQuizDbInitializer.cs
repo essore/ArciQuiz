@@ -24,7 +24,9 @@ public static class ArciQuizDbInitializer
             Partita = partita,
             TempoRispostaSecondi = 20,
             PuntiBase = 2000,
-            PenalitaErrore = false,
+            MalusBase = 500,
+            Moltiplicatore = 1,
+            PenalitaErrore = true,
             MaxAstensioni = 3
         };
 

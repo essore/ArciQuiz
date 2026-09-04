@@ -11,6 +11,57 @@ Ogni voce deve indicare:
 - verifiche realmente eseguite;
 - rischi, assunzioni o blocchi.
 
+## 2026-09-04 - Correzione errore di avvio per configurazione mancante
+
+- Task: correzione fuori piano richiesta dal proprietario.
+- Risultato:
+  - sostituita l'eccezione non gestita per credenziali admin mancanti con un messaggio leggibile su console e uscita controllata con codice 1;
+  - ripristinate le credenziali `admin/admin` esclusivamente nella configurazione Development.
+- File principali: `Web/Program.cs`, `Web/appsettings.Development.json`.
+- Verifiche:
+  - avvio in ambiente Production senza credenziali: messaggio leggibile e codice di uscita 1, senza eccezione non gestita;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 122 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 0 avvisi.
+- Rischi, assunzioni o blocchi:
+  - `admin/admin` resta limitato all'ambiente Development; gli ambienti distribuiti richiedono ancora credenziali locali esplicite.
+
+## 2026-09-04 - AQ-070 Preparare distribuzione Windows offline
+
+- Task: AQ-070.
+- Risultato:
+  - aggiunti lo script di pubblicazione self-contained per Windows (`win-x64` o `win-arm64`), il launcher da doppio clic e il nome eseguibile `ArciQuiz.exe`;
+  - resa obbligatoria la configurazione locale delle credenziali amministrative, senza valori predefiniti versionati;
+  - documentati pubblicazione, avvio, QR LAN, scelta dell'interfaccia, firewall per rete privata e copia/ripristino coerente del database;
+  - aggiunta la possibilità di fissare l'URL del QR con `Lobby:PublicBaseUrl` nel file locale.
+- File principali: `Web/Web.csproj`, `Web/appsettings.json`, `Web/appsettings.Local.example.json`, `scripts/Publish-Windows.ps1`, `scripts/Avvia-ArciQuiz.cmd`, `docs/DISTRIBUZIONE_WINDOWS.md`, `README.md`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 110 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 0 avvisi;
+  - parser PowerShell dello script e controllo statico del launcher: riusciti;
+  - `dotnet publish Web/Web.csproj --configuration Release --runtime win-x64 --self-contained true`: non riuscito perché il restore runtime termina con codice 1 prima di produrre gli asset `win-x64`, senza diagnostica NuGet.
+- Rischi, assunzioni o blocchi:
+  - AQ-070 è `BLOCKED`: il pacchetto non può essere verificato in una cartella pulita finché il restore per `win-x64` non riesce; il collaudo da due telefoni sulla stessa Wi-Fi privata resta essenziale anche dopo la pubblicazione e condiziona AQ-071.
+
+## 2026-09-04 - AQ-041 Completamento aggiornamento dipendenze
+
+- Task: AQ-041.
+- Risultato:
+  - ripristinato l'accesso autorizzato a NuGet e completato il lavoro precedentemente bloccato;
+  - allineati `Microsoft.EntityFrameworkCore`, `Microsoft.EntityFrameworkCore.Sqlite`, `Microsoft.EntityFrameworkCore.Design`, `Microsoft.EntityFrameworkCore.Tools` e il tool locale `dotnet-ef` alla patch 10.0.11;
+  - rimosse le dipendenze dirette superflue aggiunte dal tentativo incompleto; il grafo risolve `SQLitePCLRaw.lib.e_sqlite3` 2.1.12 transitivamente;
+  - AQ-041 concluso e AQ-042 promosso a `READY`.
+- File principali: `.config/dotnet-tools.json`, `Infrasctructure/Infrasctructure.csproj`, `Web/Web.csproj`, `docs/TODO.md`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - `dotnet restore ArciQuiz.slnx --force-evaluate -p:NuGetAudit=true -p:NuGetAuditMode=all`: riuscito senza avvisi di vulnerabilità;
+  - `dotnet tool restore`: `dotnet-ef` 10.0.11 ripristinato;
+  - `dotnet tool run dotnet-ef migrations has-pending-model-changes --project Infrasctructure\Infrasctructure.csproj --startup-project Web\Web.csproj --no-build`: nessuna modifica pendente al modello;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: 110 test superati;
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita, 0 errori e 0 avvisi;
+  - controllo route con `rg`: nessuna route o residuo delle pagine demo `Counter` e `Weather`;
+  - `git diff --check`: riuscito prima dell'aggiornamento documentale finale.
+- Rischi, assunzioni o blocchi:
+  - nessun blocco residuo per AQ-041; restano aperti soltanto gli smoke manuali non bloccanti già registrati nei rispettivi task.
+
 ## 2026-09-02 - AQ-041 Ripulire residui del prototipo e avvisi
 
 - Task: AQ-041.
@@ -978,3 +1029,78 @@ Ogni voce deve indicare:
   - build non verde, tracciata in `AQ-001`;
   - nessuna suite test;
   - regole implementate ancora molto distanti dalla specifica.
+
+## 2026-09-04 — AQ-070, AQ-071 e rinvio distribuzione
+
+- Task: AQ-070 e AQ-071.
+- Risultato:
+  - AQ-070 chiuso sulla predisposizione già verificata della distribuzione Windows; la pubblicazione self-contained e il collaudo LAN sono stati estratti rispettivamente in AQ-072 e AQ-073;
+  - AQ-072 resta `BLOCKED` perché il restore `win-x64` non produce gli asset runtime nell'ambiente corrente; AQ-073 resta pianificato dopo AQ-072;
+  - aggiunto il test d'integrazione SQLite ripetibile con 50 squadre, 50 sessioni valide e risposte contemporanee: una risposta per squadra, chiusura domanda, punteggio e classifica risultano corretti entro dieci secondi.
+- File principali: `Core.Tests/FiftyTeamsLoadTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`, `docs/WORKLOG.md`.
+- Verifiche:
+  - `dotnet test Core.Tests/Core.Tests.csproj --no-restore --filter FullyQualifiedName~FiftyTeamsLoadTests -m:1 /p:UseSharedCompilation=false`: riuscito (1 test, 2 s);
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscito (111 test, 9 s);
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 0 avvisi.
+- Rischi residui:
+  - il collaudo esercita i servizi su SQLite locale e non sostituisce AQ-073, che richiede due dispositivi sulla Wi-Fi privata;
+  - AQ-072 richiede un restore `win-x64` funzionante prima di poter generare il pacchetto.
+
+## 2026-09-04 — Riorganizzazione coda rilascio
+
+- Risultato:
+  - AQ-072 e AQ-073 sono stati posticipati alla milestone di rilascio, dopo AQ-059;
+  - AQ-052 dipende ora da AQ-071, il collaudo di carico che ha sostituito l'elemento rimosso AQ-043, ed è il solo task `READY`.
+- Verifiche:
+  - controllo degli stati e delle dipendenze in `docs/TODO.md`;
+  - `git diff --check`: riuscito.
+
+## 2026-09-04 — AQ-052 Completare la configurazione delle regole di manche
+
+- Task: AQ-052.
+- Risultato:
+  - la configurazione delle manche espone e salva durata standard, punti base, malus base, moltiplicatore e astensioni gratuite;
+  - le nuove manche, le nuove partite e il seed di sviluppo usano malus 500 e penalità errore attiva;
+  - aggiunta validazione condivisa lato server, con limiti coerenti con i campi e messaggi italiani, prima di ogni salvataggio;
+  - aggiunti test per valori predefiniti, limiti e round-trip SQLite delle cinque regole;
+  - AQ-052 concluso; AQ-053 promosso a `READY`.
+- File principali: `Core/Services/MancheRulesValidator.cs`, `Core.Tests/MancheRulesValidatorTests.cs`, `Web/Components/Pages/PartitaConfig.razor`, `Web/Components/Pages/NuovaPartita.razor`, `Infrasctructure/Data/ArciQuizDbInitializer.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore --filter FullyQualifiedName~MancheRulesValidatorTests -m:1 /p:UseSharedCompilation=false`: riuscito (7 test);
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscito (118 test);
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 0 avvisi;
+  - `git diff --check`: riuscito prima delle verifiche finali.
+- TestUmano: DA ESEGUIRE — vedi AQ-052 in `docs/TODO.md`; lo smoke richiede credenziali admin locali e un database utente scrivibile, non disponibili nell'ambiente agente.
+
+## 2026-09-04 — AQ-053 Guidare la preparazione della partita
+
+- Task: AQ-053.
+- Risultato:
+  - la creazione della partita imposta la preparazione e porta direttamente alla sua configurazione;
+  - la configurazione presenta i cinque passaggi, sostituisce i selettori tecnici con l'azione esplicita di apertura lobby e mostra la checklist dei requisiti mancanti;
+  - il servizio persiste le sole transizioni tra preparazione e lobby, rifiuta requisiti incompleti e conserva manche e domande quando si torna alla preparazione;
+  - dashboard e menu distinguono preparazione, conduzione della serata e storico; AQ-053 concluso e AQ-054 promosso a `READY`.
+- File principali: `Web/Components/Pages/NuovaPartita.razor`, `Web/Components/Pages/PartitaConfig.razor`, `Web/Components/Pages/MancheDomandeConfig.razor`, `Web/Components/Pages/AdminHome.razor`, `Web/Services/PartitaPreparazioneService.cs`, `Core/Services/PartitaProntaValidator.cs`, `Core.Tests/PartitaPreparazioneServiceTests.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - `dotnet test ArciQuiz.slnx --no-restore --filter "FullyQualifiedName~PartitaPreparazioneServiceTests|FullyQualifiedName~PartitaProntaValidatorTests" -m:1 /p:UseSharedCompilation=false`: riuscito (10 test);
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscito (122 test);
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 0 avvisi;
+  - `git diff --check`: riuscito.
+- TestUmano: DA ESEGUIRE — vedi AQ-053 in `docs/TODO.md`; il collaudo richiede credenziali admin locali, assenti nell'ambiente agente.
+
+## 2026-09-04 — AQ-054 Definire un'identità visiva coerente e responsive
+
+- Task: AQ-054.
+- Risultato:
+  - introdotte variabili CSS condivise per palette calda, tipografia, superfici, bordi, ombre, stati e focus;
+  - uniformati pulsanti, form, tabelle, card, avvisi e layout dell'area admin, con resa compatta alle larghezze ridotte;
+  - allineati shell del proiettore, countdown, client squadra e pagine di accesso squadra senza modificare i flussi applicativi;
+  - AQ-054 concluso; AQ-055 promosso a `READY`.
+- File principali: `Web/wwwroot/app.css`, `Web/Components/Layout/MainLayout.razor.css`, `Web/Components/Layout/NavMenu.razor.css`, `Web/Components/ProjectorCountdown.razor.css`, `Web/Components/Pages/Proiettore/ProiettorePartita.razor.css`, `Web/Components/Pages/SquadraSessione.razor.css`, `Web/Program.cs`, `docs/TODO.md`, `docs/PROJECT_STATE.md`.
+- Verifiche:
+  - controllo statico di variabili condivise, focus visibile e stati disabilitati;
+  - `dotnet test ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscito (122 test);
+  - `dotnet build ArciQuiz.slnx --no-restore -m:1 /p:UseSharedCompilation=false`: riuscita con 0 errori e 0 avvisi;
+  - `git diff --check`: riuscito prima delle verifiche finali;
+  - avvio di smoke tentato con credenziali effimere: non eseguibile perché SQLite risulta in sola lettura nell'ambiente agente.
+- TestUmano: DA ESEGUIRE — vedi AQ-054 in `docs/TODO.md`; il confronto visivo richiede credenziali admin locali e database SQLite scrivibile.

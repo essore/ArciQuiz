@@ -15,7 +15,11 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 
 var adminCredentials = builder.Configuration.GetSection(AdminCredentials.SectionName).Get<AdminCredentials>() ?? new AdminCredentials();
 if (string.IsNullOrWhiteSpace(adminCredentials.Username) || string.IsNullOrWhiteSpace(adminCredentials.Password))
-    throw new InvalidOperationException("Configurare Admin:Username e Admin:Password in appsettings.Local.json o nelle variabili d'ambiente.");
+{
+    Console.Error.WriteLine("Configurazione mancante: impostare Admin:Username e Admin:Password in appsettings.Local.json o nelle variabili d'ambiente.");
+    Environment.ExitCode = 1;
+    return;
+}
 
 // Disabilita EventLog di Windows per evitare requisiti di privilegi di amministrazione a runtime
 builder.Logging.ClearProviders();
@@ -341,12 +345,12 @@ static string PlayerPageHead(string title) => $$"""
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{System.Net.WebUtility.HtmlEncode(title)}}</title>
     <style>
-    * { box-sizing: border-box; } body { margin: 0; background: #f4f6f8; color: #172033; font-family: system-ui, sans-serif; }
-    main { width: min(100%, 32rem); min-height: 100vh; margin: 0 auto; padding: 2rem 1.25rem; background: white; }
+    * { box-sizing: border-box; } body { margin: 0; background: #f8f3ea; color: #26313d; font-family: system-ui, sans-serif; }
+    main { width: min(100%, 32rem); min-height: 100vh; margin: 0 auto; padding: 2rem 1.25rem; background: #fffdf9; box-shadow: 0 .4rem 1.2rem rgb(64 42 22 / 10%); }
     h1 { font-size: clamp(2rem, 9vw, 3rem); line-height: 1.05; } p { font-size: 1.1rem; line-height: 1.5; }
-    label { display: block; margin: 1.25rem 0; font-weight: 700; } input { width: 100%; min-height: 3.25rem; margin-top: .4rem; padding: .75rem; font: inherit; border: 2px solid #aab3c2; border-radius: .75rem; }
-    button, .action { display: block; width: 100%; min-height: 3.5rem; margin-top: 1rem; padding: .9rem; border: 0; border-radius: .8rem; background: #1457d9; color: white; font: inherit; font-weight: 800; text-align: center; text-decoration: none; }
-    .secondary { background: #e8edf5; color: #172033; } [role=alert] { padding: 1rem; border-radius: .75rem; background: #ffe4e4; color: #8b1515; }
+    label { display: block; margin: 1.25rem 0; font-weight: 700; } input { width: 100%; min-height: 3.25rem; margin-top: .4rem; padding: .75rem; font: inherit; border: 2px solid #b9a994; border-radius: .75rem; }
+    button, .action { display: block; width: 100%; min-height: 3.5rem; margin-top: 1rem; padding: .9rem; border: 0; border-radius: .8rem; background: #9c3f2d; color: white; font: inherit; font-weight: 800; text-align: center; text-decoration: none; }
+    .secondary { background: #e7ddd0; color: #26313d; } button:focus-visible, .action:focus-visible, input:focus { outline: .25rem solid #175ea8; outline-offset: .15rem; } [role=alert] { padding: 1rem; border-radius: .75rem; background: #fbe5e2; color: #842b25; }
     </style></head>
     """;
 

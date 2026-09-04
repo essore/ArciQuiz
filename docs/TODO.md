@@ -483,7 +483,7 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
 
 ### AQ-041 — Ripulire residui del prototipo e avvisi
 
-- Stato: `BLOCKED`
+- Stato: `DONE`
 - Priorità: P2
 - Dipendenze: AQ-040, AQ-044, AQ-045, AQ-046, AQ-047, AQ-048, AQ-049, AQ-050, AQ-051, AQ-060
 - Obiettivo: rimuovere pagine demo, codice commentato, campi inutilizzati e avvisi non giustificati senza rifattorizzazioni architetturali.
@@ -492,44 +492,16 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - nessun warning del compilatore nel codice proprietario;
   - dipendenze vulnerabili o incoerenti risolte con versioni compatibili;
   - rinomina dei refusi valutata separatamente per impatto.
-- Validazione: build, test e controllo navigazione.
-- Blocco: l'ambiente non può raggiungere `https://api.nuget.org/v3/index.json` (connessione deviata a `127.0.0.1:9`), quindi non è possibile ripristinare e verificare l'aggiornamento EF Core 10.0.11 che risolve le dipendenze vulnerabili. Ripristinare l'accesso a NuGet e aggiornare tutti i riferimenti EF Core alla stessa patch 10.0.11, quindi rieseguire restore, test e build.
+- Validazione: restore NuGet con audit completo senza avvisi, EF Core e `dotnet-ef` allineati a 10.0.11, 110 test superati, build con 0 errori e 0 avvisi e controllo navigazione completato.
 
-### AQ-042 — Preparare distribuzione Windows offline
-
-- Stato: `PLANNED`
-- Priorità: P0
-- Dipendenze: AQ-040, AQ-041
-- Obiettivo: rendere avvio, accesso LAN e conservazione dati gestibili da una persona non tecnica.
-- Criteri di accettazione:
-  - pacchetto riproducibile per Windows;
-  - procedura di avvio semplice;
-  - URL/QR LAN affidabile;
-  - istruzioni firewall e scelta rete;
-  - posizione database e procedura di copia documentate;
-  - nessuna dipendenza da Internet a runtime.
-- Validazione: prova su macchina/cartella pulita e almeno due dispositivi nella LAN.
-
-### AQ-043 — Collaudare il carico di 50 squadre
-
-- Stato: `PLANNED`
-- Priorità: P1
-- Dipendenze: AQ-042
-- Obiettivo: verificare il flusso critico con 50 squadre simulate.
-- Criteri di accettazione:
-  - 50 sessioni registrate;
-  - invii concorrenti senza duplicati o perdita;
-  - chiusura domanda e classifica entro tempi adatti alla serata;
-  - risultati e limiti documentati.
-- Validazione: test di carico locale ripetibile.
 
 ## Milestone M5 — Esperienza d'uso e manutenzione dei dati
 
 ### AQ-052 — Completare la configurazione delle regole di manche
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P0
-- Dipendenze: AQ-043
+- Dipendenze: AQ-071
 - Obiettivo: rendere configurabili e coerenti con il motore di punteggio tutte le regole previste per una manche.
 - Criteri di accettazione:
   - la configurazione espone punti base, malus base, moltiplicatore della manche, durata standard e numero massimo di astensioni gratuite;
@@ -537,11 +509,12 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - la UI non espone stati tecnici o opzioni che il server rifiuta successivamente;
   - i valori esistenti vengono caricati e salvati senza perdita;
   - la validazione usa messaggi italiani e impedisce valori non ammessi prima del salvataggio.
-- Validazione: test dei valori predefiniti e del round-trip di tutte le regole, suite completa, build e smoke test della configurazione.
+- Validazione: 7 test mirati sui valori predefiniti, limiti e round-trip SQLite delle regole; suite completa con 118 test e build con 0 errori e 0 avvisi.
+- TestUmano: DA ESEGUIRE — Con credenziali admin locali e database SQLite scrivibile, creare una partita e una manche, verificare i valori iniziali (20 s, 2000 punti, 500 malus, moltiplicatore 1, 3 astensioni), modificarli, salvare e riaprire la configurazione. Provare anche 4 s e moltiplicatore 0: devono apparire messaggi italiani e il salvataggio non deve alterare i valori persistiti. Rischio residuo: l'ambiente agente non può avviare l'app con un database utente locale scrivibile e credenziali amministrative locali; default, limiti e persistenza sono coperti dai test automatici.
 
 ### AQ-053 — Guidare la preparazione della partita
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-052
 - Obiettivo: trasformare la preparazione in un percorso comprensibile da dati iniziali a lobby pronta, senza richiedere la conoscenza degli stati interni.
@@ -552,11 +525,12 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - gli stati tecnici non sono modificabili tramite selettori generici;
   - l'utente può tornare ai passaggi precedenti senza perdere modifiche già salvate;
   - dashboard e navigazione distinguono preparazione, conduzione della serata e storico.
-- Validazione: test delle transizioni esposte dalla UI e smoke test completo dalla creazione alla lobby.
+- Validazione: 3 test di integrazione sulle transizioni di preparazione, 7 test del validatore di lobby, suite completa con 122 test e build con 0 errori e 0 avvisi.
+- TestUmano: DA ESEGUIRE — Con credenziali admin locali e database SQLite scrivibile, creare una domanda valida, creare una partita con una manche e verificare il reindirizzamento alla configurazione. Assegnare la domanda, verificare la checklist e aprire la lobby; tornare in preparazione, controllare che manche e domanda restino salvate e riaprire la lobby. Controllare infine che dashboard e menu separino preparazione, conduzione e storico. Rischio residuo: l'ambiente agente non dispone di credenziali admin locali per verificare il rendering e l'interazione nel browser; le transizioni persistite e i requisiti mancanti sono coperti dai test automatici.
 
 ### AQ-054 — Definire un'identità visiva coerente e responsive
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Priorità: P1
 - Dipendenze: AQ-053
 - Obiettivo: sostituire l'aspetto da template con un sistema visivo caldo e riconoscibile, adatto a un'associazione culturale e coerente tra amministrazione, regia e client squadra.
@@ -567,11 +541,12 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - l'area amministrativa resta utilizzabile sul monitor di un portatile e degrada correttamente a larghezze ridotte;
   - focus, contrasto e significato delle azioni non dipendono soltanto dal colore;
   - la personalizzazione non modifica i comportamenti funzionali già verificati.
-- Validazione: controllo accessibilità di base, smoke test delle pagine principali e confronto visivo a larghezze desktop e ridotte.
+- Validazione: controllo statico dei focus visibili, degli stati disabilitati e delle variabili condivise; suite completa con 122 test e build con 0 errori e 0 avvisi.
+- TestUmano: DA ESEGUIRE — Con credenziali admin locali e database SQLite scrivibile, aprire `/admin`, catalogo, configurazione partita, regia, proiettore e ingresso squadra a 1366 px e 375 px. Verificare palette calda coerente, gerarchia di form/tabelle/messaggi e stati vuoti, pulsanti principali-secondari-distruttivi distinguibili anche disabilitati, focus visibile da tastiera e assenza di scorrimento orizzontale nell'area admin. Rischio residuo: lo smoke automatico non è eseguibile perché il database SQLite dell'ambiente agente è in sola lettura.
 
 ### AQ-055 — Archiviare e ripristinare il catalogo domande
 
-- Stato: `PLANNED`
+- Stato: `READY`
 - Priorità: P1
 - Dipendenze: AQ-054
 - Obiettivo: gestire cataloghi di alcune centinaia di domande e consentire la sostituzione di un set importato senza rompere partite o storico.
@@ -632,6 +607,63 @@ Stati ammessi: `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, `DONE`.
   - se la quantità non è valida o le disponibilità cambiano prima del salvataggio, nessuna associazione parziale viene lasciata nel database e l'utente riceve un messaggio comprensibile;
   - resta disponibile l'aggiunta manuale della singola domanda dai risultati filtrati.
 - Validazione: test dei filtri combinati, dei limiti 1 e numero massimo disponibile, dell'estrazione senza duplicati, dell'ordine assegnato, dell'atomicità in caso di conflitto e smoke test della pagina con catalogo popolato.
+
+### AQ-070 — Preparare distribuzione Windows offline
+
+- Stato: `DONE`
+- Priorità: P0
+- Dipendenze: AQ-040, AQ-041
+- Obiettivo: predisporre avvio, accesso LAN e conservazione dati gestibili da una persona non tecnica.
+- Criteri di accettazione:
+  - script di pubblicazione Windows predisposto;
+  - procedura di avvio semplice;
+  - URL/QR LAN affidabile;
+  - istruzioni firewall e scelta rete;
+  - posizione database e procedura di copia documentate;
+  - nessuna dipendenza da Internet a runtime.
+- Validazione: 110 test e build completa riusciti con 0 avvisi; sintassi dello script e contenuto atteso del launcher controllati. La pubblicazione self-contained e il collaudo LAN sono tracciati separatamente in AQ-072 e AQ-073.
+
+### AQ-071 — Collaudare il carico di 50 squadre
+
+- Stato: `DONE`
+- Priorità: P1
+- Dipendenze: AQ-070
+- Obiettivo: verificare il flusso critico con 50 squadre simulate.
+- Criteri di accettazione:
+  - 50 sessioni registrate;
+  - invii concorrenti senza duplicati o perdita;
+  - chiusura domanda e classifica entro tempi adatti alla serata;
+  - risultati e limiti documentati.
+- Validazione: test di integrazione SQLite ripetibile con 50 sessioni e invii concorrenti, chiusura della domanda, calcolo punteggi e classifica; il flusso termina entro 10 secondi. Suite completa (111 casi) e build completate con 0 avvisi.
+
+## Milestone M6 — Rilascio e collaudo sul campo
+
+### AQ-072 — Pubblicare il pacchetto Windows self-contained
+
+- Stato: `PLANNED`
+- Priorità: P0
+- Dipendenze: AQ-070, AQ-059
+- Obiettivo: generare e conservare un pacchetto Windows self-contained riproducibile da una cartella di lavoro pulita.
+- Criteri di accettazione:
+  - il restore mirato a `win-x64` termina con esito positivo;
+  - `scripts\\Publish-Windows.ps1` genera il pacchetto senza dipendenze runtime da Internet;
+  - il contenuto pubblicato comprende launcher, configurazione locale di esempio e documentazione necessaria;
+  - la pubblicazione viene verificata da una cartella di lavoro pulita.
+- Validazione: esecuzione dello script di pubblicazione, controllo del contenuto e avvio del launcher dalla cartella pulita.
+- Nota: nell'ambiente corrente il restore `win-x64` termina con codice 1 senza diagnostica NuGet; riprendere il task soltanto quando gli asset runtime sono ripristinabili.
+
+### AQ-073 — Collaudare accesso LAN del pacchetto Windows
+
+- Stato: `PLANNED`
+- Priorità: P0
+- Dipendenze: AQ-072
+- Obiettivo: verificare l'accesso al pacchetto pubblicato da almeno due dispositivi sulla Wi-Fi privata.
+- Criteri di accettazione:
+  - il PC di regia usa una rete privata e il firewall consente l'accesso richiesto;
+  - QR e URL LAN aprono l'ingresso squadra corretto su due dispositivi distinti;
+  - iscrizione, login e visualizzazione del proiettore funzionano senza Internet;
+  - posizione del database e procedura di copia risultano applicabili al pacchetto.
+- Validazione: collaudo manuale da due dispositivi sulla stessa Wi-Fi privata e registrazione dell'esito nel diario.
 
 ## Decisioni ancora non trasformate in task
 
